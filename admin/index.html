@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ps" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101b58">
+<title>Qarar Rewards - Admin Panel</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+margin:0;
+font-family:Tahoma,Arial,sans-serif;
+background:#f2f5ff;
+color:#17234d;
+}
+header{
+background:linear-gradient(135deg,#101b58,#4524a6);
+color:white;
+padding:18px 16px 25px;
+border-radius:0 0 28px 28px;
+box-shadow:0 5px 20px #101b5825;
+}
+.top{
+max-width:1100px;
+margin:auto;
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:10px;
+}
+.logo{
+font-size:20px;
+font-weight:bold;
+}
+.logo span{color:#ffd342}
+.home{
+color:white;
+text-decoration:none;
+background:#ffffff20;
+padding:9px 13px;
+border-radius:18px;
+font-size:12px;
+}
+.container{
+max-width:1100px;
+margin:auto;
+padding:20px 14px 40px;
+}
+.title{
+font-size:22px;
+font-weight:bold;
+margin:5px 0;
+}
+.subtitle{
+font-size:13px;
+color:#64748b;
+margin-bottom:20px;
+}
+.stats{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:14px;
+}
+.card{
+background:white;
+border-radius:18px;
+padding:18px;
+box-shadow:0 5px 18px #17234d12;
+}
+.stat .icon{
+font-size:28px;
+margin-bottom:10px;
+}
+.stat b{
+display:block;
+font-size:22px;
+color:#101b58;
+}
+.label{
+font-size:12px;
+color:#64748b;
+margin-top:5px;
+}
+.section{
+margin-top:22px;
+}
+.section-title{
+font-size:17px;
+font-weight:bold;
+margin-bottom:10px;
+}
+.actions{
+display:flex;
+flex-wrap:wrap;
+gap:8px;
+}
+button{
+border:0;
+border-radius:10px;
+padding:10px 14px;
+cursor:pointer;
+font-family:inherit;
+font-weight:bold;
+}
+.primary{
+background:#101b58;
+color:white;
+}
+.yellow{
+background:#ffd342;
+color:#17234d;
+}
+.red{
+background:#e74c3c;
+color:white;
+}
+.green{
+background:#20a464;
+color:white;
+}
+input,select{
+width:100%;
+padding:12px;
+border:1px solid #dbe3f0;
+border-radius:10px;
+outline:none;
+font-family:inherit;
+background:white;
+}
+input:focus,select:focus{
+border-color:#4524a6;
+}
+.search{
+display:flex;
+gap:8px;
+margin-bottom:12px;
+}
+.search input{flex:1}
+.table-wrap{
+overflow-x:auto;
+}
+table{
+width:100%;
+border-collapse:collapse;
+min-width:700px;
+}
+th,td{
+padding:12px 9px;
+border-bottom:1px solid #edf0f6;
+text-align:right;
+font-size:12px;
+}
+th{
+background:#f7f8fc;
+color:#475569;
+}
+.badge{
+display:inline-block;
+padding:5px 9px;
+border-radius:15px;
+font-size:11px;
+font-weight:bold;
+}
+.pending{background:#fff3cd;color:#856404}
+.approved{background:#d1fae5;color:#065f46}
+.rejected{background:#fee2e2;color:#991b1b}
+.empty{
+text-align:center;
+padding:25px;
+color:#64748b;
+}
+.notice{
+background:#eef2ff;
+border-right:4px solid #4524a6;
+padding:13px;
+border-radius:10px;
+font-size:12px;
+margin-bottom:15px;
+}
+@media(max-width:800px){
+.stats{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:500px){
+.stats{grid-template-columns:1fr 1fr;gap:9px}
+.card{padding:14px}
+.top{align-items:flex-start}
+.title{font-size:19px}
+}
+
+
+.user-modal{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.55);
+z-index:9999;
+align-items:center;
+justify-content:center;
+padding:15px;
+}
+
+.user-modal-box{
+width:100%;
+max-width:520px;
+max-height:90vh;
+overflow:auto;
+background:#fff;
+border-radius:22px;
+padding:20px;
+box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+
+.user-modal-head{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:10px;
+margin-bottom:15px;
+}
+
+.user-modal-head h3{
+margin:0;
+color:#17234d;
+}
+
+.close-modal{
+border:0;
+background:#f2f5ff;
+width:38px;
+height:38px;
+border-radius:12px;
+font-size:20px;
+cursor:pointer;
+}
+
+.user-info-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:10px;
+}
+
+.user-info{
+background:#f5f7ff;
+border-radius:14px;
+padding:12px;
+}
+
+.user-info small{
+display:block;
+color:#777;
+margin-bottom:5px;
+}
+
+.user-info strong{
+display:block;
+color:#17234d;
+word-break:break-word;
+}
+
+.user-actions{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:10px;
+margin-top:15px;
+}
+
+.user-actions button{
+border:0;
+padding:12px;
+border-radius:12px;
+cursor:pointer;
+font-weight:bold;
+}
+
+@media(max-width:600px){
+.user-info-grid{
+grid-template-columns:1fr;
+}
+}
+
+</style>
+</head>
+
+<body>
+<script>
+if(sessionStorage.getItem('qarar_admin_logged_in') !== 'true'){
+  window.location.replace('login.html');
+}
+</script>
+
+<header>
+<div class="top">
+<div class="logo">🎁 Qarar <span>Rewards</span></div>
+<div style="display:flex;gap:7px;align-items:center"><a class="home" href="../index.html">اصلي پاڼه</a><button onclick="adminLogout()" style="border:0;background:#e74c3c;color:white;padding:9px 13px;border-radius:18px;font-family:inherit;font-size:12px;cursor:pointer">وتل</button></div>
+</div>
+</header>
+
+<main class="container">
+
+<div class="title">🛡️ د Admin مدیریت</div>
+<div class="subtitle">د Qarar Rewards د کاروونکو، عوایدو او Withdrawal مدیریت</div>
+
+<div class="notice">
+⚠️ دا اوسنی Local Admin Panel دی. د واقعي Online سیستم لپاره به وروسته Server-side authentication او Database هم ورزیاتوو.
+</div>
+
+<div class="stats">
+
+<div class="card stat">
+<div class="icon">👥</div>
+<b id="totalUsers">0</b>
+<div class="label">ټول Users</div>
+</div>
+
+<div class="card stat">
+<div class="icon">💰</div>
+<b id="totalBalance">0 AFN</b>
+<div class="label">ټول Balance</div>
+</div>
+
+<div class="card stat">
+<div class="icon">📈</div>
+<b id="totalEarned">0 AFN</b>
+<div class="label">ټول عاید</div>
+</div>
+
+<div class="card stat">
+<div class="icon">💸</div>
+<b id="pendingWithdrawals">0</b>
+<div class="label">Pending Withdrawals</div>
+</div>
+
+</div>
+
+<div class="section">
+<div class="section-title">👥 Users</div>
+
+<div class="card">
+
+<div class="search">
+<input id="userSearch" placeholder="د نوم، Username یا Email له مخې لټون...">
+<button class="primary" onclick="renderUsers()">لټون</button>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>نوم</th>
+<th>Username</th>
+<th>Email</th>
+<th>Balance</th>
+<th>Referral</th>
+<th>ثبت نېټه</th><th>مدیریت</th>
+</tr>
+</thead>
+<tbody id="usersTable"></tbody>
+</table>
+</div>
+
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">💸 Withdrawal Requests</div>
+
+<div class="card">
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>User</th>
+<th>Amount</th>
+<th>Method</th>
+<th>Account</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="withdrawalsTable"></tbody>
+</table>
+</div>
+</div>
+</div>
+
+</main>
+
+
+<div id="userModal" class="user-modal" onclick="closeUserModal(event)">
+  <div class="user-modal-box" onclick="event.stopPropagation()">
+
+    <div class="user-modal-head">
+      <h3>👤 د User معلومات</h3>
+      <button class="close-modal" onclick="closeUserModal()">×</button>
+    </div>
+
+    <div class="user-info-grid">
+
+      <div class="user-info">
+        <small>نوم</small>
+        <strong id="modalFullName">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Username</small>
+        <strong id="modalUsername">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Email</small>
+        <strong id="modalEmail">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Balance</small>
+        <strong id="modalBalance">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Total Earned</small>
+        <strong id="modalEarned">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Referral Count</small>
+        <strong id="modalReferrals">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Total Withdrawn</small>
+        <strong id="modalWithdrawn">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Status</small>
+        <strong id="modalStatus">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Referral Code</small>
+        <strong id="modalReferralCode">-</strong>
+      </div>
+
+      <div class="user-info">
+        <small>Created</small>
+        <strong id="modalCreated">-</strong>
+      </div>
+
+    </div>
+
+    <div class="user-actions">
+      <button class="primary" id="modalBalanceBtn">💰 Balance</button>
+      <button class="primary" id="modalBlockBtn">🔒 Block</button>
+      <button class="primary" id="modalDeleteBtn">🗑️ Delete</button>
+      <button class="close-modal" onclick="closeUserModal()">بندول</button>
+    </div>
+
+  </div>
+</div>
+
+<script src="../js/app.js"></script>
+
+<script>
+
+function adminLogout(){
+  sessionStorage.removeItem('qarar_admin_logged_in');
+  window.location.href='login.html';
+}
+
+function getUsers(){
+return JSON.parse(localStorage.getItem('qarar_rewards_users') || '[]');
+}
+
+function getWithdrawals(){
+if(window.QararRewards && window.QararRewards.Storage){
+return window.QararRewards.Storage.get('withdrawals',[]);
+}
+return [];
+}
+
+function money(n){
+return Number(n || 0).toLocaleString('en-US') + ' AFN';
+}
+
+function renderStats(){
+
+const users=getUsers();
+const withdrawals=getWithdrawals();
+
+document.getElementById('totalUsers').textContent=users.length;
+
+document.getElementById('totalBalance').textContent=
+money(users.reduce((a,u)=>a+Number(u.balance||0),0));
+
+document.getElementById('totalEarned').textContent=
+money(users.reduce((a,u)=>a+Number(u.totalEarned||0),0));
+
+document.getElementById('pendingWithdrawals').textContent=
+withdrawals.filter(w=>w.status==='pending').length;
+
+}
+
+function renderUsers(){
+
+const tbody=document.getElementById('usersTable');
+const search=(document.getElementById('userSearch').value||'').toLowerCase();
+
+const users=getUsers().filter(u=>
+String(u.fullName||'').toLowerCase().includes(search) ||
+String(u.username||'').toLowerCase().includes(search) ||
+String(u.email||'').toLowerCase().includes(search)
+);
+
+if(!users.length){
+tbody.innerHTML='<tr><td colspan="7" class="empty">هیڅ User پیدا نه شو.</td></tr>';
+return;
+}
+
+tbody.innerHTML=users.map(u=>`
+<tr>
+<td>${escapeHTML(u.fullName||'-')}</td>
+<td>${escapeHTML(u.username||'-')}</td>
+<td>${escapeHTML(u.email||'-')}</td>
+<td>${money(u.balance)}</td>
+<td>${Number(u.referralCount||0)}</td>
+<td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString('ps-AF') : '-'}</td>
+<td><button class="primary" onclick="manageUser('${u.id}')">مدیریت</button></td>
+</tr>
+`).join('');
+
+}
+
+let selectedUserId=null;
+
+function manageUser(id){
+  const users=getUsers();
+  const user=users.find(u=>u.id===id);
+
+  if(!user){
+    alert('❌ User پیدا نه شو.');
+    return;
+  }
+
+  selectedUserId=id;
+
+  document.getElementById('modalFullName').textContent=user.fullName||'-';
+  document.getElementById('modalUsername').textContent=user.username||'-';
+  document.getElementById('modalEmail').textContent=user.email||'-';
+  document.getElementById('modalBalance').textContent=money(user.balance||0);
+  document.getElementById('modalEarned').textContent=money(user.totalEarned||0);
+  document.getElementById('modalReferrals').textContent=Number(user.referralCount||0);
+  document.getElementById('modalWithdrawn').textContent=money(user.totalWithdrawn||0);
+  document.getElementById('modalReferralCode').textContent=user.referralCode||'-';
+  document.getElementById('modalCreated').textContent=
+    user.createdAt ? new Date(user.createdAt).toLocaleDateString('ps-AF') : '-';
+
+  const status=user.status==='blocked'?'🔒 Blocked':'🟢 Active';
+  document.getElementById('modalStatus').textContent=status;
+
+  const blockBtn=document.getElementById('modalBlockBtn');
+  blockBtn.textContent=user.status==='blocked'?'🔓 Unblock':'🔒 Block';
+
+  document.getElementById('userModal').style.display='flex';
+}
+
+function closeUserModal(event){
+  if(event && event.target!==document.getElementById('userModal'))return;
+  document.getElementById('userModal').style.display='none';
+  selectedUserId=null;
+}
+
+function refreshUserModal(){
+  if(!selectedUserId)return;
+  const users=getUsers();
+  const user=users.find(u=>u.id===selectedUserId);
+  if(user){
+    manageUser(selectedUserId);
+  }else{
+    closeUserModal();
+  }
+}
+
+document.getElementById('modalBalanceBtn').onclick=function(){
+  if(!selectedUserId)return;
+
+  const users=getUsers();
+  const user=users.find(u=>u.id===selectedUserId);
+  if(!user)return;
+
+  const amount=prompt(
+    'د Balance بدلون ولیکئ.\n\n'+
+    'مثال:\n100 = اضافه کول\n-50 = کمول'
+  );
+
+  if(amount===null)return;
+
+  const change=Number(amount);
+
+  if(!Number.isFinite(change)||change===0){
+    alert('❌ ناسم مقدار.');
+    return;
+  }
+
+  const newBalance=Number(user.balance||0)+change;
+
+  if(newBalance<0){
+    alert('❌ Balance له صفر څخه کمېدای نشي.');
+    return;
+  }
+
+  user.balance=newBalance;
+
+  if(change>0){
+    user.totalEarned=Number(user.totalEarned||0)+change;
+  }
+
+  if(window.QararRewards && window.QararRewards.Storage){
+    const transactions=window.QararRewards.Storage.get('transactions',[]);
+
+    transactions.push({
+      id:'TX-'+Date.now(),
+      userId:user.id,
+      type:change>0?'admin_credit':'admin_debit',
+      amount:change,
+      description:change>0
+        ?'Admin لخوا Balance اضافه شو'
+        :'Admin لخوا Balance کم شو',
+      createdAt:new Date().toISOString()
+    });
+
+    window.QararRewards.Storage.set('transactions',transactions);
+    window.QararRewards.Storage.set('users',users);
+  }
+
+  alert('✅ Balance بدل شو.\nنوی Balance: '+money(newBalance));
+  renderAll();
+  refreshUserModal();
+};
+
+document.getElementById('modalBlockBtn').onclick=function(){
+  if(!selectedUserId)return;
+
+  const users=getUsers();
+  const user=users.find(u=>u.id===selectedUserId);
+  if(!user)return;
+
+  user.status=user.status==='blocked'?'active':'blocked';
+
+  if(window.QararRewards && window.QararRewards.Storage){
+    window.QararRewards.Storage.set('users',users);
+  }
+
+  alert(user.status==='blocked'?'🔒 User Block شو.':'🔓 User Unblock شو.');
+
+  renderAll();
+  refreshUserModal();
+};
+
+document.getElementById('modalDeleteBtn').onclick=function(){
+  if(!selectedUserId)return;
+
+  const users=getUsers();
+  const user=users.find(u=>u.id===selectedUserId);
+  if(!user)return;
+
+  const ok=confirm(
+    '⚠️ ایا رښتیا غواړئ دا User Delete کړئ؟\n\n'+
+    'Name: '+(user.fullName||'-')+'\n'+
+    'Username: '+(user.username||'-')+'\n\n'+
+    'دا عمل بېرته نه راګرځي.'
+  );
+
+  if(!ok)return;
+
+  const remainingUsers=users.filter(u=>u.id!==user.id);
+
+  if(window.QararRewards && window.QararRewards.Storage){
+    window.QararRewards.Storage.set('users',remainingUsers);
+  }
+
+  alert('🗑️ User Delete شو.');
+
+  closeUserModal();
+  renderAll();
+}
+
+function renderWithdrawals(){
+
+const tbody=document.getElementById('withdrawalsTable');
+const withdrawals=getWithdrawals();
+
+if(!withdrawals.length){
+tbody.innerHTML='<tr><td colspan="6" class="empty">تر اوسه Withdrawal Request نشته.</td></tr>';
+return;
+}
+
+tbody.innerHTML=withdrawals.map(w=>{
+
+let badge='pending';
+
+if(w.status==='approved') badge='approved';
+if(w.status==='rejected') badge='rejected';
+
+return `
+<tr>
+<td>${escapeHTML(w.username||w.userId||'-')}</td>
+<td>${money(w.amount)}</td>
+<td>${escapeHTML(w.method||'-')}</td>
+<td>${escapeHTML(w.account||'-')}</td>
+<td><span class="badge ${badge}">${escapeHTML(w.status||'pending')}</span></td>
+<td>
+${w.status==='pending'
+? `<button class="green" onclick="approveWithdrawal('${w.id}')">تایید</button>
+<button class="red" onclick="rejectWithdrawal('${w.id}')">رد</button>`
+: '-'}
+</td>
+</tr>
+`;
+
+}).join('');
+
+}
+
+function approveWithdrawal(id){
+
+const withdrawals=getWithdrawals();
+const item=withdrawals.find(w=>w.id===id);
+
+if(!item)return;
+
+item.status='approved';
+item.processedAt=new Date().toISOString();
+
+if(window.QararRewards && window.QararRewards.Storage){
+  window.QararRewards.Storage.set('withdrawals',withdrawals);
+}
+
+renderAll();
+
+}
+
+function rejectWithdrawal(id){
+
+const withdrawals=getWithdrawals();
+const item=withdrawals.find(w=>w.id===id);
+
+if(!item)return;
+
+item.status='rejected';
+item.processedAt=new Date().toISOString();
+
+if(window.QararRewards && window.QararRewards.Storage){
+  window.QararRewards.Storage.set('withdrawals',withdrawals);
+}
+
+renderAll();
+
+}
+
+function escapeHTML(value){
+
+return String(value)
+.replace(/&/g,'&amp;')
+.replace(/</g,'&lt;')
+.replace(/>/g,'&gt;')
+.replace(/"/g,'&quot;')
+.replace(/'/g,'&#039;');
+
+}
+
+function renderAll(){
+
+renderStats();
+renderUsers();
+renderWithdrawals();
+
+}
+
+document.addEventListener('DOMContentLoaded',renderAll);
+
+</script>
+
+</body>
+</html>

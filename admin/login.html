@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ps" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101b58">
+<title>Qarar Rewards - Admin Login</title>
+<style>
+*{box-sizing:border-box}
+body{
+margin:0;
+font-family:Tahoma,Arial,sans-serif;
+background:#f2f5ff;
+color:#17234d;
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:20px;
+}
+.box{
+width:100%;
+max-width:420px;
+}
+.logo{
+text-align:center;
+font-size:25px;
+font-weight:bold;
+color:#101b58;
+margin-bottom:18px;
+}
+.logo span{color:#4524a6}
+.card{
+background:white;
+border-radius:24px;
+padding:28px 22px;
+box-shadow:0 10px 35px #101b5818;
+}
+.icon{
+width:70px;
+height:70px;
+border-radius:50%;
+background:#101b58;
+color:#ffd342;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:32px;
+margin:0 auto 15px;
+}
+h1{
+text-align:center;
+font-size:21px;
+margin:0 0 7px;
+}
+.sub{
+text-align:center;
+font-size:12px;
+color:#64748b;
+margin-bottom:22px;
+}
+label{
+display:block;
+font-size:13px;
+font-weight:bold;
+margin:13px 0 7px;
+}
+input{
+width:100%;
+padding:13px;
+border:1px solid #dbe3f0;
+border-radius:11px;
+outline:none;
+font-family:inherit;
+font-size:14px;
+}
+input:focus{border-color:#4524a6}
+.password{
+position:relative;
+}
+.password input{
+padding-left:48px;
+}
+.show{
+position:absolute;
+left:8px;
+top:50%;
+transform:translateY(-50%);
+width:34px;
+height:34px;
+padding:0;
+border:0;
+border-radius:8px;
+background:#f2f5ff;
+font-size:16px;
+cursor:pointer;
+}
+button.login{
+width:100%;
+margin-top:20px;
+padding:13px;
+border:0;
+border-radius:12px;
+background:#ffd342;
+color:#17234d;
+font-family:inherit;
+font-size:14px;
+font-weight:bold;
+cursor:pointer;
+}
+button.login:hover{filter:brightness(.97)}
+.message{
+display:none;
+margin-top:13px;
+padding:11px;
+border-radius:10px;
+font-size:12px;
+text-align:center;
+background:#fee2e2;
+color:#991b1b;
+}
+.security{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-top:18px;
+}
+.security div{
+background:#f7f8fc;
+padding:10px 5px;
+border-radius:10px;
+text-align:center;
+font-size:10px;
+color:#64748b;
+}
+.back{
+display:block;
+text-align:center;
+margin-top:18px;
+color:#4524a6;
+text-decoration:none;
+font-size:12px;
+}
+.note{
+margin-top:15px;
+font-size:10px;
+line-height:1.7;
+color:#94a3b8;
+text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+
+<div class="logo">🎁 Qarar <span>Rewards</span></div>
+
+<div class="card">
+
+<div class="icon">🔐</div>
+
+<h1>Admin Login</h1>
+<div class="sub">د مدیریت پینل ته د ننوتلو لپاره معلومات ولیکئ</div>
+
+<form id="adminLoginForm">
+
+<label for="adminUsername">Admin Username</label>
+<input id="adminUsername" type="text" autocomplete="username" placeholder="Username ولیکئ" required>
+
+<label for="adminPassword">Password</label>
+
+<div class="password">
+<input id="adminPassword" type="password" autocomplete="current-password" placeholder="Password ولیکئ" required>
+<button type="button" class="show" onclick="toggleAdminPassword()">👁️</button>
+</div>
+
+<button class="login" type="submit">🔓 Admin Login</button>
+
+<div id="adminMessage" class="message"></div>
+
+</form>
+
+<div class="security">
+<div>🔒 خوندي Admin Access</div>
+<div>🛡️ مدیریت سیستم</div>
+</div>
+
+<a class="back" href="../index.html">← اصلي پاڼې ته بېرته تلل</a>
+
+<div class="note">
+یادونه: دا اوسنی Local Prototype دی. د Online Production نسخه کې به Server-side authentication او خوندي Password Hashing وکارول شي.
+</div>
+
+</div>
+</div>
+
+<script>
+
+const ADMIN_USERNAME='admin';
+const ADMIN_PASSWORD='Qarar@2026';
+
+function toggleAdminPassword(){
+
+const input=document.getElementById('adminPassword');
+
+input.type=input.type==='password'?'text':'password';
+
+}
+
+document.getElementById('adminLoginForm').addEventListener('submit',function(e){
+
+e.preventDefault();
+
+const username=document.getElementById('adminUsername').value.trim();
+const password=document.getElementById('adminPassword').value;
+
+const message=document.getElementById('adminMessage');
+
+if(username===ADMIN_USERNAME && password===ADMIN_PASSWORD){
+
+sessionStorage.setItem('qarar_admin_logged_in','true');
+
+window.location.href='index.html';
+
+}else{
+
+message.style.display='block';
+message.textContent='❌ Username یا Password ناسم دی.';
+
+}
+
+});
+
+</script>
+
+</body>
+</html>

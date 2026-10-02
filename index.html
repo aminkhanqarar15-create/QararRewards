@@ -1,0 +1,257 @@
+
+<!DOCTYPE html>
+<html lang="ps" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101b58">
+<title>Qarar Rewards</title>
+<style>
+* {box-sizing:border-box}
+body {
+  margin:0;
+  font-family:Tahoma,Arial,sans-serif;
+  background:#f2f5ff;
+  color:#17234d;
+}
+header {
+  background:linear-gradient(135deg,#101b58,#4524a6);
+  color:white;
+  padding:22px 16px 35px;
+  border-radius:0 0 28px 28px;
+}
+nav {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.logo {font-size:21px;font-weight:bold}
+.logo span {color:#ffd342}
+.avatar {
+  background:#ffffff22;
+  padding:9px 12px;
+  border-radius:20px;
+}
+.hero {
+  text-align:center;
+  padding:28px 5px 5px;
+}
+.gift {
+  font-size:86px;
+  filter:drop-shadow(0 8px 12px #0005);
+}
+.hero h1 {font-size:25px;line-height:1.6}
+.hero p {color:#e4e5ff;line-height:1.9}
+.btn {
+  border:0;
+  border-radius:25px;
+  padding:13px 22px;
+  font-size:15px;
+  font-weight:bold;
+  cursor:pointer;
+}
+.primary {background:#ffcf31;color:#30245d}
+main {padding:16px;max-width:650px;margin:auto}
+.section-title {
+  font-size:18px;
+  margin:18px 2px 12px;
+}
+.card {
+  background:white;
+  border-radius:18px;
+  padding:16px;
+  margin-bottom:15px;
+  box-shadow:0 5px 18px #25366b0d;
+}
+.ad {
+  background:linear-gradient(135deg,#202b55,#384e83);
+  color:white;
+  text-align:center;
+  border:2px dashed #9eacd5;
+  min-height:145px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+.ad small {color:#dce5ff}
+.play {
+  font-size:38px;
+  border:0;
+  background:none;
+  color:white;
+}
+.banners {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.banner {
+  border-radius:15px;
+  padding:18px 8px;
+  text-align:center;
+  color:white;
+  background:linear-gradient(135deg,#5337c6,#a34ed7);
+  min-height:105px;
+}
+.banner:nth-child(2) {
+  background:linear-gradient(135deg,#078d75,#39bf89);
+}
+.stat {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.stat-item {
+  background:#f1f2ff;
+  border-radius:13px;
+  padding:15px 8px;
+  text-align:center;
+}
+.stat-item strong {
+  display:block;
+  font-size:23px;
+  color:#5733c5;
+  margin-top:8px;
+}
+.linkbox {
+  background:#f1f4ff;
+  padding:12px;
+  border-radius:12px;
+  overflow-wrap:anywhere;
+  font-size:13px;
+  direction:ltr;
+  text-align:left;
+}
+.progress {
+  background:#e1e4ee;
+  height:12px;
+  border-radius:20px;
+  overflow:hidden;
+  margin:12px 0;
+}
+.progress div {
+  background:linear-gradient(90deg,#12b981,#65d9a5);
+  width:0%;
+  height:100%;
+  transition:width .3s;
+}
+button:active {transform:scale(.98)}
+footer {
+  text-align:center;
+  color:#78819c;
+  padding:22px 10px;
+  font-size:12px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <div class="logo">🎁 Qarar <span>Rewards</span></div>
+    <div style="display:flex;gap:6px;align-items:center"><a href="login.html" style="color:white;text-decoration:none;background:#ffffff22;padding:8px 10px;border-radius:18px;font-size:12px">ننوتل</a><a href="register.html" style="color:#17234d;text-decoration:none;background:#ffd342;padding:8px 10px;border-radius:18px;font-size:12px;font-weight:bold">راجستر</a></div>
+  </nav>
+  <div class="hero">
+    <div class="gift">🎁</div>
+    <h1>ډالۍ او انعامونه<br>
+    ستا په تمه دي!</h1>
+    <p>زموږ له کمپاین سره یوځای شه<br>
+    او د انعامونو شرایط وپېژنه.</p>
+    <button class="btn primary"
+    onclick="document.getElementById('rewards').scrollIntoView({behavior:'smooth'})">
+      🎁 انعامونه وګوره
+    </button>
+  </div>
+</header>
+
+<main>
+  <h2 class="section-title">🎬 د ویډیو اعلان</h2>
+  <section class="card">
+    <div class="ad">
+      <small>د اعلان ځای</small>
+      <button class="play" aria-label="د ویډیو اعلان">▶</button>
+      <strong>ویډیويي اعلان</strong>
+      <small>د اعلان شبکې له اتصال وروسته</small>
+    </div>
+  </section>
+
+  <h2 class="section-title">🖼️ ځانګړي اعلانونه</h2>
+  <section class="banners">
+    <div class="banner">
+      <div style="font-size:30px">📱</div>
+      <strong>ځانګړي وړاندیزونه</strong>
+      <p style="font-size:12px">بینري اعلان</p>
+    </div>
+    <div class="banner">
+      <div style="font-size:30px">🌐</div>
+      <strong>د انټرنېټ نړۍ</strong>
+      <p style="font-size:12px">بینري اعلان</p>
+    </div>
+  </section>
+
+  <h2 class="section-title">🎁 ستا د انعامونو حالت</h2>
+  <section class="card" id="rewards">
+    <div class="stat">
+      <div class="stat-item">
+        🌐 د انټرنېټ انعام
+        <strong>---</strong>
+      </div>
+      <div class="stat-item">
+        👥 معتبر دعوتونه
+        <strong id="count">0 / 10</strong>
+      </div>
+    </div>
+    <p style="font-size:13px;color:#737d99">
+      د انعامونو شرایط به د کمپاین له پیل سره اعلان شي.
+    </p>
+  </section>
+
+  <h2 class="section-title">🔗 خپل ملګري راوبله</h2>
+  <section class="card">
+    <p style="line-height:1.8;font-size:14px">
+      خپل ځانګړی لینک له ملګرو سره شریک کړه.
+      معتبر دعوتونه به ستا په حساب کې ثبت شي.
+    </p>
+    <div class="linkbox" id="refLink">
+      د حساب له جوړېدو وروسته به ستا لینک دلته وي.
+    </div>
+    <button class="btn primary"
+    style="width:100%;margin-top:12px"
+    onclick="shareLink()">
+      🔗 لینک شریک کړه
+    </button>
+    <p style="font-size:12px;color:#8790a7">
+      دا د ډیزاین لومړنۍ نسخه ده؛
+      دعوتونه لا په سرور کې نه ثبتېږي.
+    </p>
+  </section>
+</main>
+
+<footer>
+  Qarar Rewards © 2026<br>
+  د کارونې شرایط · د محرمیت تګلاره
+</footer>
+
+<script>
+function shareLink() {
+  const link = document.getElementById('refLink').innerText;
+  if (navigator.share) {
+    navigator.share({
+      title:'Qarar Rewards',
+      text:'د Qarar Rewards کمپاین وګوره!',
+      url:link.startsWith('http') ? link : location.href
+    }).catch(()=>{});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(location.href)
+      .then(()=>alert('لینک کاپي شو!'))
+      .catch(()=>alert('لینک کاپي نه شو.'));
+  } else {
+    alert('د شریکولو لپاره د براوزر شریکولو وسیله وکاروه.');
+  }
+}
+</script>
+</body>
+</html>

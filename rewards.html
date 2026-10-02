@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ps" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101b58">
+<title>انعامونه | Qarar Rewards</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f5ff;color:#17234d;font-family:Arial,sans-serif}
+header{background:linear-gradient(135deg,#101b58,#4524a6);color:white;padding:20px;border-radius:0 0 24px 24px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.logo{font-size:21px;font-weight:bold}
+a{color:inherit;text-decoration:none}
+.home{background:#ffffff25;padding:9px 13px;border-radius:20px;font-size:13px}
+main{max-width:650px;margin:22px auto;padding:0 15px}
+.card{background:white;border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:0 5px 20px #17234d0d}
+h2{font-size:19px;margin:0 0 15px}
+.muted{color:#77809d;font-size:13px;line-height:1.8}
+.balance{text-align:center;padding:25px 20px}
+.balance .emoji{font-size:42px}
+.amount{font-size:34px;font-weight:bold;color:#4524a6;margin:12px 0}
+.task{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0;border-bottom:1px solid #edf0f8}
+.task:last-child{border-bottom:0}
+.task-info{flex:1}
+.task-name{font-weight:bold;font-size:15px;margin-bottom:6px}
+.reward{color:#16834c;font-size:13px;font-weight:bold}
+button{border:0;border-radius:11px;padding:11px 14px;font-size:13px;font-weight:bold;cursor:pointer}
+.primary{background:#ffd342;color:#17234d}
+.done{background:#e8f7ed;color:#16834c}
+footer{text-align:center;color:#8991a9;font-size:12px;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="logo">🎁 Qarar <span style="color:#ffd342">Rewards</span></div>
+    <a class="home" href="dashboard.html">ډشبورډ</a>
+  </div>
+</header>
+
+<main>
+  <section class="card balance">
+    <div class="emoji">🏆</div>
+    <h2>زما انعامونه</h2>
+    <div class="amount" id="balance">0 AFN</div>
+    <p class="muted">دا ستا اوسنی مجازي بیلانس دی.</p>
+  </section>
+
+  <section class="card">
+    <h2>🎯 ورځنۍ دندې</h2>
+    <p class="muted">د دندو په بشپړولو سره انعامونه ترلاسه کړه.</p>
+    <div id="tasks">معلومات لوډ کېږي...</div>
+  </section>
+</main>
+
+<footer>© 2026 Qarar Rewards</footer>
+
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  const QR=window.QararRewards;
+  if(!QR||!QR.Auth)return;
+  const user=QR.Auth.getCurrentUser();
+  if(!user)return;
+
+  function render(){
+    const fresh=QR.UserDB.getById?QR.UserDB.getById(user.id):QR.Auth.getCurrentUser();
+    const current=fresh||QR.Auth.getCurrentUser();
+    document.getElementById('balance').textContent=
+      Number(current.balance||0).toLocaleString()+' AFN';
+
+    const tasks=window.QRTasks||[];
+    const done=JSON.parse(localStorage.getItem('qarar_rewards_completed_tasks')||'{}');
+    const box=document.getElementById('tasks');
+    box.innerHTML='';
+
+    if(!tasks.length){
+      box.textContent='اوس مهال کومه دنده نشته.';
+      return;
+    }
+
+    tasks.forEach(function(task){
+      const isDone=!!done[current.id+'_'+task.id];
+      const row=document.createElement('div');
+      row.className='task';
+
+      const info=document.createElement('div');
+      info.className='task-info';
+
+      const name=document.createElement('div');
+      name.className='task-name';
+      name.textContent=task.title||task.name||task.id;
+
+      const reward=document.createElement('div');
+      reward.className='reward';
+      reward.textContent='+'+task.reward+' AFN';
+
+      info.appendChild(name);
+      info.appendChild(reward);
+
+      const btn=document.createElement('button');
+      btn.className=isDone?'done':'primary';
+      btn.textContent=isDone?'✅ بشپړه شوې':'انعام ترلاسه کړه';
+      btn.disabled=isDone;
+
+      btn.addEventListener('click',function(){
+        if(typeof window.completeDashboardTask==='function'){
+          window.completeDashboardTask(task.id,task.reward);
+          setTimeout(render,150);
+        }else{
+          alert('د دندې سیستم اوس چمتو نه دی.');
+        }
+      });
+
+      row.appendChild(info);
+      row.appendChild(btn);
+      box.appendChild(row);
+    });
+  }
+  render();
+});
+</script>
+</body>
+</html>

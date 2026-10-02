@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ps" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101b58">
+<title>Dashboard - Qarar Rewards</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f5ff;color:#17234d;font-family:Arial,Tahoma,sans-serif}
+header{background:linear-gradient(135deg,#101b58,#4524a6);color:white;padding:18px 16px 28px;border-radius:0 0 28px 28px}
+nav{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.logo{font-size:21px;font-weight:bold}.logo span{color:#ffd342}
+nav a{color:white;text-decoration:none;background:#ffffff18;padding:8px 11px;border-radius:18px;font-size:12px}
+.container{max-width:900px;margin:auto;padding:18px}
+.welcome{margin-top:20px}
+.welcome h1{margin:0 0 7px;font-size:24px}
+.welcome p{margin:0;color:#dcd9ff}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}
+.card{background:white;border-radius:20px;padding:18px;box-shadow:0 5px 20px #17234d12}
+.stat{text-align:center}
+.stat .icon{font-size:28px}.stat b{display:block;font-size:21px;margin-top:7px}
+.label{font-size:12px;color:#68718f;margin-top:5px}
+.balance{margin-top:15px;background:linear-gradient(135deg,#ffd342,#ffb52e);border-radius:22px;padding:22px;color:#17234d}
+.balance small{display:block}.balance strong{display:block;font-size:32px;margin:8px 0}
+.progress{height:10px;background:#ffffff80;border-radius:20px;overflow:hidden}
+.progress div{height:100%;background:#101b58;width:0}
+.section-title{margin:25px 2px 12px;font-size:18px;font-weight:bold}
+.refbox{background:#f5f7ff;border:1px dashed #aaa;padding:12px;border-radius:14px;word-break:break-all;font-size:12px}
+.actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{border:0;border-radius:14px;padding:11px 15px;font-weight:bold;cursor:pointer;background:#101b58;color:white}
+button.yellow{background:#ffd342;color:#17234d}
+input,select{width:100%;padding:13px;border:1px solid #dfe4f3;border-radius:12px;margin-top:7px;background:#fff}
+.task{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid #edf0f7;padding:13px 0}
+.task:last-child{border-bottom:0}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:right;padding:10px;border-bottom:1px solid #edf0f7}
+.logout{background:#e74c3c!important}
+footer{text-align:center;color:#7b839e;font-size:11px;padding:25px 10px}
+@media(min-width:650px){.stats{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+
+<body>
+
+<header>
+<nav>
+<div class="logo">🎁 Qarar <span>Rewards</span></div>
+<div style="display:flex;gap:6px">
+<a href="index.html">اصلي</a>
+<a href="referrals.html">ریفرلونه</a>
+<a href="rewards.html">انعامونه</a><button id="logoutBtn" data-logout class="logout" style="border:0;color:white;background:#e74c3c;padding:8px 11px;border-radius:18px;font-size:12px;cursor:pointer">وتل</button>
+</div>
+</nav>
+
+<div class="welcome">
+<h1>سلام، <span id="userName">کاروونکی</span> 👋</h1>
+<p>ستاسې شخصي Dashboard ته ښه راغلاست</p>
+</div>
+</header>
+
+<main class="container">
+
+<div class="stats">
+<div class="card stat"><div class="icon">💰</div><b id="balance">0 AFN</b><div class="label">اوسنی بیلانس</div></div>
+<div class="card stat"><div class="icon">📈</div><b id="totalEarned">0 AFN</b><div class="label">ټول عاید</div></div>
+<div class="card stat"><div class="icon">👥</div><b id="referrals">0</b><div class="label">ریفرلونه</div></div>
+<div class="card stat"><div class="icon">✅</div><b id="completedTasks">0</b><div class="label">بشپړ شوي کارونه</div></div>
+</div>
+
+<div class="balance">
+<small>🎯 د ایستلو هدف: 500 AFN</small>
+<strong id="balanceLarge">0 AFN</strong>
+<div class="progress"><div id="balanceProgress"></div></div>
+</div>
+
+<div class="section-title">👥 ستاسې Referral Link</div>
+<div class="card">
+<div id="referralCode" class="refbox">-</div>
+<div class="actions">
+<button class="yellow" id="copyReferral">📋 کاپي</button>
+<button onclick="shareReferral()">📤 شریکول</button>
+<a href="referrals.html" style="text-decoration:none"><button type="button">👥 ریفرلونه</button></a>
+</div>
+</div>
+
+<div class="section-title">🎯 د عاید کارونه</div>
+<div class="card" id="tasksContainer">
+<div class="task"><span>⏳ کارونه لوډ کېږي...</span></div>
+</div>
+
+<div class="section-title">💸 د پیسو ایستلو غوښتنه</div>
+<div class="card">
+<form id="withdrawForm">
+<label>مبلغ</label>
+<input id="withdrawAmount" type="number" min="500" placeholder="لږ تر لږه 500 AFN">
+<label>د تادیې طریقه</label>
+<select id="withdrawMethod">
+<option value="">انتخاب کړئ</option>
+<option value="bank">بانکي حساب</option>
+<option value="mobile">موبایل پیسې</option>
+<option value="other">نور</option>
+</select>
+<label>حساب / شمېره</label>
+<input id="withdrawAccount" placeholder="د حساب معلومات">
+<br><br>
+<button type="submit" class="yellow">💸 د ایستلو غوښتنه</button>
+</form>
+</div>
+
+<div class="section-title">👤 پروفایل</div>
+<div class="card">
+<form id="profileForm">
+<label>بشپړ نوم</label>
+<input id="profileFullName">
+<label>ایمیل</label>
+<input id="profileEmail" type="email">
+<br><br>
+<button type="submit">💾 معلومات ساتل</button>
+</form>
+</div>
+
+<div class="section-title">📋 وروستۍ معاملې</div>
+<div class="card" style="overflow:auto">
+<table>
+<thead><tr><th>ډول</th><th>مبلغ</th><th>نېټه</th></tr></thead>
+<tbody id="transactionsTable">
+<tr><td colspan="3">تر اوسه معامله نشته</td></tr>
+</tbody>
+</table>
+</div>
+
+</main>
+
+<footer>© 2026 Qarar Rewards — ټول حقوق خوندي دي</footer>
+
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+<script>
+function shareReferral(){
+const el=document.getElementById('referralCode');
+const text=el?el.textContent:'';
+if(navigator.share){
+navigator.share({title:'Qarar Rewards',text:'زما د Referral لینک:',url:text});
+}else if(navigator.clipboard){
+navigator.clipboard.writeText(text).then(()=>alert('Referral Link کاپي شو'));
+}else{
+alert(text);
+}
+}
+</script>
+</body>
+</html>

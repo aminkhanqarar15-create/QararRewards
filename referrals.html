@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ps" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101b58">
+<title>زما ریفرلونه | Qarar Rewards</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f5ff;color:#17234d;font-family:Arial,sans-serif}
+header{background:linear-gradient(135deg,#101b58,#4524a6);color:white;padding:20px;border-radius:0 0 24px 24px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.logo{font-size:21px;font-weight:bold}
+a{color:inherit;text-decoration:none}
+.home{background:#ffffff25;padding:9px 13px;border-radius:20px;font-size:13px}
+main{max-width:650px;margin:22px auto;padding:0 15px}
+.card{background:white;border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:0 5px 20px #17234d0d}
+h2{font-size:19px;margin:0 0 15px}
+.hero{text-align:center;padding:26px 20px}
+.hero .emoji{font-size:45px}
+.hero h2{margin:10px 0}
+.muted{color:#77809d;font-size:13px;line-height:1.8}
+.stat{background:#f2f5ff;border-radius:14px;padding:16px;text-align:center;margin-top:16px}
+.stat strong{display:block;font-size:30px;color:#4524a6;margin-bottom:5px}
+.linkbox{background:#f2f5ff;padding:12px;border-radius:12px;direction:ltr;word-break:break-all;font-size:13px;color:#4524a6;margin:12px 0}
+button{border:0;border-radius:12px;padding:12px 18px;font-size:14px;font-weight:bold;cursor:pointer}
+.primary{background:#ffd342;color:#17234d;width:100%}
+.secondary{background:#eeeaff;color:#4524a6}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:13px 0;border-bottom:1px solid #edf0f8}
+.row:last-child{border-bottom:0}
+.name{font-weight:bold;font-size:14px}
+.date{font-size:12px;color:#8991a9;margin-top:5px}
+.empty{text-align:center;padding:20px;color:#8991a9;font-size:14px}
+footer{text-align:center;color:#8991a9;font-size:12px;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="logo">🎁 Qarar <span style="color:#ffd342">Rewards</span></div>
+    <a class="home" href="dashboard.html">بېرته ډشبورډ ته</a>
+  </div>
+</header>
+
+<main>
+  <section class="card hero">
+    <div class="emoji">👥</div>
+    <h2>ملګري دعوت کړه او انعام ترلاسه کړه</h2>
+    <p class="muted">خپل ځانګړی لینک له ملګرو سره شریک کړه. کله چې څوک ستا د لینک له لارې حساب جوړ کړي، د سیستم د شرایطو له مخې انعام ترلاسه کوې.</p>
+    <div class="stat">
+      <strong id="refCount">0</strong>
+      <span>ټول دعوت شوي کسان</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🔗 ستا د دعوت ځانګړی لینک</h2>
+    <p class="muted">دا لینک کاپي او له خپلو ملګرو سره شریک کړه.</p>
+    <div class="linkbox" id="myReferralLink">...</div>
+    <button class="primary" id="copyBtn">📋 لینک کاپي کړه</button>
+    <p class="muted" id="message" style="text-align:center"></p>
+  </section>
+
+  <section class="card">
+    <h2>📋 ستا د ریفرلونو لېست</h2>
+    <div id="referralList" class="empty">معلومات لوډ کېږي...</div>
+  </section>
+</main>
+
+<footer>© 2026 Qarar Rewards</footer>
+
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  const QR=window.QararRewards;
+  const current=QR&&QR.Auth?QR.Auth.getCurrentUser():null;
+  if(!current)return;
+
+  const link=window.location.origin+
+    window.location.pathname.replace(/[^/]+$/,'')+
+    'register.html?ref='+encodeURIComponent(current.referralCode||'');
+
+  document.getElementById('myReferralLink').textContent=link;
+
+  const users=QR.Storage.get('users',[]);
+  const invited=users.filter(u=>
+    u.id!==current.id &&
+    String(u.referredBy||'').toUpperCase()===
+    String(current.referralCode||'').toUpperCase()
+  );
+
+  document.getElementById('refCount').textContent=invited.length;
+
+  const list=document.getElementById('referralList');
+  if(invited.length===0){
+    list.className='empty';
+    list.textContent='تر اوسه دې څوک نه دي دعوت کړي.';
+  }else{
+    list.className='';
+    list.innerHTML='';
+    invited.forEach(function(u){
+      const row=document.createElement('div');
+      row.className='row';
+      const info=document.createElement('div');
+      const name=document.createElement('div');
+      name.className='name';
+      name.textContent=u.fullName||u.username||'کاروونکی';
+      const date=document.createElement('div');
+      date.className='date';
+      date.textContent=u.createdAt?new Date(u.createdAt).toLocaleDateString('ps-AF'):'';
+      info.appendChild(name);
+      info.appendChild(date);
+      row.appendChild(info);
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('copyBtn').addEventListener('click',async function(){
+    const msg=document.getElementById('message');
+    try{
+      await navigator.clipboard.writeText(link);
+      msg.textContent='✅ لینک کاپي شو.';
+    }catch(e){
+      msg.textContent='لینک په لاس کاپي کړه.';
+    }
+  });
+});
+</script>
+</body>
+</html>

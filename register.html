@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ps" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101b58">
+<title>راجستر | Qarar Rewards</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+margin:0;
+font-family:Tahoma,Arial,sans-serif;
+background:#f2f5ff;
+color:#17234d;
+}
+
+header{
+background:linear-gradient(135deg,#101b58,#4524a6);
+color:white;
+padding:22px 16px 35px;
+border-radius:0 0 28px 28px;
+}
+
+nav{
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.logo{
+font-size:21px;
+font-weight:bold;
+}
+
+.logo span{
+color:#ffd342;
+}
+
+.home{
+color:white;
+text-decoration:none;
+background:#ffffff22;
+padding:9px 14px;
+border-radius:20px;
+font-size:13px;
+}
+
+.container{
+max-width:520px;
+margin:25px auto;
+padding:0 15px;
+}
+
+.card{
+background:white;
+border-radius:24px;
+padding:25px 20px;
+box-shadow:0 8px 25px #18245d18;
+}
+
+.icon{
+width:70px;
+height:70px;
+margin:0 auto 15px;
+background:#ffd342;
+border-radius:50%;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:35px;
+}
+
+h1{
+text-align:center;
+margin:5px 0 8px;
+font-size:25px;
+}
+
+.subtitle{
+text-align:center;
+color:#64748b;
+font-size:14px;
+margin-bottom:20px;
+}
+
+label{
+display:block;
+font-size:13px;
+font-weight:bold;
+margin:13px 0 7px;
+}
+
+input{
+width:100%;
+padding:13px;
+border:1px solid #dbe2f0;
+border-radius:13px;
+font-family:inherit;
+font-size:14px;
+outline:none;
+}
+
+input:focus{
+border-color:#4524a6;
+box-shadow:0 0 0 3px #4524a615;
+}
+
+.password-box{
+position:relative;
+}
+
+.password-box input{
+padding-left:55px;
+}
+
+.show{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;margin:0;border:0;border-radius:8px;background:#f2f5ff;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;z-index:2}
+
+.hint{
+font-size:11px;
+color:#64748b;
+margin-top:5px;
+}
+
+.terms{
+display:flex;
+align-items:flex-start;
+gap:7px;
+margin:17px 0;
+font-size:12px;
+font-weight:normal;
+}
+
+.terms input{
+width:auto;
+margin-top:2px;
+}
+
+.terms a{
+color:#4524a6;
+text-decoration:none;
+}
+
+button{
+width:100%;
+border:0;
+padding:15px;
+border-radius:14px;
+background:linear-gradient(135deg,#ffd342,#ffbd21);
+color:#17234d;
+font-family:inherit;
+font-size:15px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.message{
+display:none;
+margin:15px 0;
+padding:12px;
+border-radius:12px;
+font-size:13px;
+text-align:center;
+}
+
+.login{
+margin-top:20px;
+padding:15px;
+background:#f2f5ff;
+border-radius:15px;
+text-align:center;
+font-size:13px;
+}
+
+.login a{
+color:#4524a6;
+font-weight:bold;
+text-decoration:none;
+}
+
+.benefits{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:10px;
+margin-top:18px;
+}
+
+.benefits div{
+background:#f8faff;
+padding:12px 5px;
+border-radius:12px;
+text-align:center;
+font-size:11px;
+color:#64748b;
+}
+
+footer{
+text-align:center;
+padding:25px 10px;
+font-size:12px;
+color:#64748b;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<nav>
+<div class="logo">🎁 Qarar <span>Rewards</span></div>
+<a class="home" href="index.html">🏠 کور</a>
+</nav>
+</header>
+
+<div class="container">
+
+<div class="card">
+
+<div class="icon">🎁</div>
+
+<h1>نوی حساب جوړ کړئ</h1>
+
+<div class="subtitle">
+د Qarar Rewards کورنۍ سره یوځای شئ
+</div>
+
+<form id="registerForm">
+
+<label for="fullName">بشپړ نوم</label>
+<input
+type="text"
+id="fullName"
+placeholder="خپل بشپړ نوم ولیکئ"
+required
+>
+
+<label for="username">کارن نوم</label>
+<input
+type="text"
+id="username"
+placeholder="لکه: qarar123"
+required
+>
+<div class="hint">کارن نوم باید لږ تر لږه 3 توري ولري.</div>
+
+<label for="email">ایمیل</label>
+<input
+type="email"
+id="email"
+placeholder="example@gmail.com"
+required
+>
+
+<label for="password">پټ نوم</label>
+
+<div class="password-box">
+<input
+type="password"
+id="password"
+placeholder="قوي پټ نوم جوړ کړئ"
+required
+>
+<button type="button" class="show" onclick="togglePassword('password')">👁️</button>
+</div>
+
+<label for="confirmPassword">پټ نوم بیا ولیکئ</label>
+
+<div class="password-box">
+<input
+type="password"
+id="confirmPassword"
+placeholder="پټ نوم بیا ولیکئ"
+required
+>
+<button type="button" class="show" onclick="togglePassword('confirmPassword')">👁️</button>
+</div>
+
+<label for="referralCode">د ریفرل کوډ <span style="color:#64748b">(اختیاري)</span></label>
+<input
+type="text"
+id="referralCode"
+placeholder="که ریفرل کوډ لرئ، دلته یې ولیکئ"
+>
+
+<div class="terms">
+<input type="checkbox" id="terms" required>
+<span>
+زه د Qarar Rewards د کارولو شرایط منم.
+<a href="#" onclick="alert('د شرایطو بشپړ متن به وروسته اضافه شي.')">شرایط</a>
+</span>
+</div>
+
+<div id="registerMessage" class="message"></div>
+
+<button type="submit">
+🎉 حساب جوړ کړئ
+</button>
+
+</form>
+
+<div class="login">
+مخکې حساب لرئ؟
+<a href="login.html">خپل حساب ته ننوتل</a>
+</div>
+
+<div class="benefits">
+<div>🎁 د ثبت انعامونه</div>
+<div>👥 ریفرل عاید</div>
+<div>💰 د انعام سیستم</div>
+<div>🔒 خوندي حساب</div>
+</div>
+
+</div>
+</div>
+
+<footer>
+© 2026 Qarar Rewards — ټول حقوق خوندي دي
+</footer>
+
+<script src="js/app.js"></script>
+
+<script>
+function togglePassword(id){
+const p=document.getElementById(id);
+p.type=p.type==='password'?'text':'password';
+}
+
+const params=new URLSearchParams(window.location.search);
+const ref=params.get('ref');
+
+if(ref){
+document.getElementById('referralCode').value=ref;
+}
+</script>
+
+</body>
+</html>
