@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qararrewards-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "qararrewards-db"
+    }
+  ]
+}
