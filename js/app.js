@@ -1,140 +1,304 @@
 'use strict';
 
+/* =========================================================
+   QARAR REWARDS - FRONTEND APP
+   Cloudflare Worker API + D1 Database
+   ========================================================= */
+
 const QR_CONFIG = {
   appName: 'Qarar Rewards',
   currency: 'AFN',
+
   storagePrefix: 'qarar_rewards_',
+
   referralReward: 8,
   dailyLoginReward: 2,
-  minWithdraw: 500
+  offerReward: 10,
+
+  minWithdraw: 500,
+
+  API_URL:
+    'https://qararrewards-api.aminkhanqarar15.workers.dev'
 };
 
+
+/* =========================================================
+   STORAGE
+   ========================================================= */
+
 const Storage = {
+
   get(key, fallback = null) {
     try {
-      const value = localStorage.getItem(QR_CONFIG.storagePrefix + key);
-      return value === null ? fallback : JSON.parse(value);
-    } catch (e) {
+      const value = localStorage.getItem(
+        QR_CONFIG.storagePrefix + key
+      );
+
+      if (value === null) {
+        return fallback;
+      }
+
+      return JSON.parse(value);
+
+    } catch (error) {
+      console.error('Storage get error:', error);
       return fallback;
     }
   },
 
+
   set(key, value) {
-    localStorage.setItem(
-      QR_CONFIG.storagePrefix + key,
-      JSON.stringify(value)
-    );
+    try {
+      localStorage.setItem(
+        QR_CONFIG.storagePrefix + key,
+        JSON.stringify(value)
+      );
+
+      return true;
+
+    } catch (error) {
+      console.error('Storage set error:', error);
+      return false;
+    }
   },
 
+
   remove(key) {
-    localStorage.removeItem(QR_CONFIG.storagePrefix + key);
+    try {
+      localStorage.removeItem(
+        QR_CONFIG.storagePrefix + key
+      );
+
+      return true;
+
+    } catch (error) {
+      console.error('Storage remove error:', error);
+      return false;
+    }
   }
 };
 
+
+/* =========================================================
+   API REQUEST
+   ========================================================= */
+
+async function apiRequest(endpoint, options = {}) {
+
+  const token = Storage.get('authToken', null);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  if (token) {
+    headers.Authorization = 'Bearer ' + token;
+  }
+
+  try {
+
+    const response = await fetch(
+      QR_CONFIG.API_URL + endpoint,
+      {
+        ...options,
+        headers
+      }
+    );
+
+    let data = {};
+
+    try {
+      data = await response.json();
+    } catch (error) {
+      data = {};
+    }
+
+    if (!response.ok) {
+
+      if (response.status === 401) {
+        Storage.remove('authToken');
+        Storage.remove('currentUser');
+      }
+
+      throw new Error(
+        data.message ||
+        data.error ||
+        'د سرور سره د اړیکې پر مهال ستونزه رامنځته شوه.'
+      );
+    }
+
+    return data;
+
+  } catch (error) {
+
+    console.error('API Error:', error);
+
+    if (
+      error instanceof TypeError ||
+      String(error.message).includes('Failed to fetch')
+    ) {
+      throw new Error(
+        'له سرور سره اړیکه نشته. انټرنېټ او API لینک وګورئ.'
+      );
+    }
+
+    throw error;
+  }
+}
+
+
+/* =========================================================
+   USER CACHE
+   ========================================================= */
+
 const UserDB = {
-  getAll() {
-    return Storage.get('users', []);
+
+  getCurrent() {
+    return Storage.get('currentUser', null);
   },
 
-  saveAll(users) {
-    Storage.set('users', users);
-  },
 
-  findById(id) {
-    return this.getAll().find(u => u.id === id) || null;
-  },
-
-  findByEmail(email) {
-    const value = String(email || '').toLowerCase().trim();
-
-    return this.getAll().find(
-      u => String(u.email || '').toLowerCase() === value
-    ) || null;
-  },
-
-  findByUsername(username) {
-    const value = String(username || '').toLowerCase().trim();
-
-    return this.getAll().find(
-      u => String(u.username || '').toLowerCase() === value
-    ) || null;
-  },
-
-  findByReferralCode(code) {
-    const value = String(code || '').toUpperCase().trim();
-
-    return this.getAll().find(
-      u => String(u.referralCode || '').toUpperCase() === value
-    ) || null;
-  },
-
-  create(user) {
-    const users = this.getAll();
-    users.push(user);
-    this.saveAll(users);
+  save(user) {
+    Storage.set('currentUser', user);
     return user;
   },
 
-  update(id, changes) {
-    const users = this.getAll();
-    const index = users.findIndex(u => u.id === id);
 
-    if (index === -1) return null;
+  clear() {
+    Storage.remove('currentUser');
+  },
 
-    users[index] = {
-      ...users[index],
-      ...changes
-    };
 
-    this.saveAll(users);
-    return users[index];
+  async refresh() {
+
+    try {
+
+      const result = await apiRequest('/api/me');
+
+      const user =
+        result.user ||
+        result.data ||
+        result;
+
+      if (user) {
+        this.save(user);
+      }
+
+      return user;
+
+    } catch (error) {
+
+      console.error('Refresh user error:', error);
+
+      return null;
+    }
   }
 };
 
-function generateId() {
-  return 'u_' +
-    Date.now().toString(36) +
-    '_' +
-    Math.random().toString(36).slice(2, 8);
-}
 
-function generateReferralCode(username) {
-  const base = String(username || 'USER')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .toUpperCase()
-    .slice(0, 6);
-
-  return base + Math.random()
-    .toString(36)
-    .slice(2, 6)
-    .toUpperCase();
-}
+/* =========================================================
+   AUTHENTICATION
+   ========================================================= */
 
 const Auth = {
+
+  getToken() {
+    return Storage.get('authToken', null);
+  },
+
+
   getCurrentUser() {
-    const id = Storage.get('currentUserId', null);
-
-    if (!id) return null;
-
-    return UserDB.findById(id);
+    return UserDB.getCurrent();
   },
 
-  login(user) {
-    Storage.set('currentUserId', user.id);
+
+  async refreshUser() {
+    return await UserDB.refresh();
   },
 
-  logout() {
-    Storage.remove('currentUserId');
-    window.location.href = 'index.html';
+
+  setSession(token, user) {
+
+    if (token) {
+      Storage.set('authToken', token);
+    }
+
+    if (user) {
+      UserDB.save(user);
+    }
   },
+
+
+  async loginSession(result) {
+
+    const token =
+      result.token ||
+      result.accessToken ||
+      result.session ||
+      null;
+
+    const user =
+      result.user ||
+      result.data?.user ||
+      null;
+
+    if (token) {
+      Storage.set('authToken', token);
+    }
+
+    if (user) {
+      UserDB.save(user);
+    }
+
+    return {
+      token,
+      user
+    };
+  },
+
+
+  async logout() {
+
+    try {
+
+      if (this.getToken()) {
+        await apiRequest(
+          '/api/logout',
+          {
+            method: 'POST'
+          }
+        );
+      }
+
+    } catch (error) {
+
+      console.warn(
+        'Logout API error:',
+        error
+      );
+
+    } finally {
+
+      Storage.remove('authToken');
+      Storage.remove('currentUser');
+
+      window.location.href = 'index.html';
+    }
+  },
+
 
   isLoggedIn() {
-    return !!this.getCurrentUser();
+    return !!this.getToken();
   },
 
+
   requireLogin() {
+
     if (!this.isLoggedIn()) {
+
       window.location.href = 'login.html';
+
       return false;
     }
 
@@ -142,545 +306,1591 @@ const Auth = {
   }
 };
 
-function addTransaction(userId, type, amount, note) {
-  const transactions = Storage.get('transactions', []);
 
-  transactions.unshift({
-    id: 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-    userId,
-    type,
-    amount,
-    note,
-    createdAt: new Date().toISOString()
-  });
+/* =========================================================
+   REGISTER
+   ========================================================= */
 
-  Storage.set('transactions', transactions);
-}
+async function registerUser(data) {
 
-function processReferral(referralCode, newUserId) {
-  if (!referralCode) return null;
+  const fullName =
+    String(data.fullName || '').trim();
 
-  const referrer = UserDB.findByReferralCode(referralCode);
+  const username =
+    String(data.username || '').trim();
 
-  if (!referrer) return null;
+  const email =
+    String(data.email || '')
+      .trim()
+      .toLowerCase();
 
-  if (referrer.id === newUserId) return null;
+  const password =
+    String(data.password || '');
 
-  const reward = QR_CONFIG.referralReward;
+  const confirmPassword =
+    String(
+      data.confirmPassword ||
+      password
+    );
 
-  UserDB.update(referrer.id, {
-    balance: Number(referrer.balance || 0) + reward,
-    totalEarned: Number(referrer.totalEarned || 0) + reward,
-    referrals: Number(referrer.referrals || 0) + 1
-  });
+  const referralCode =
+    String(data.referralCode || '')
+      .trim()
+      .toUpperCase();
 
-  addTransaction(
-    referrer.id,
-    'referral',
-    reward,
-    'د نوي غړي د راجستر ریفرل انعام'
-  );
 
-  return referrer;
-}
-
-function registerUser(data) {
-  const fullName = String(data.fullName || '').trim();
-  const username = String(data.username || '').trim();
-  const email = String(data.email || '').trim().toLowerCase();
-  const password = String(data.password || '');
-  const confirmPassword = String(data.confirmPassword || password);
-  const referralCode = String(data.referralCode || '').trim();
+  /* ---------- VALIDATION ---------- */
 
   if (fullName.length < 2) {
+
     return {
       success: false,
       message: 'مهرباني وکړئ بشپړ نوم ولیکئ.'
     };
   }
 
+
   if (username.length < 3) {
+
     return {
       success: false,
-      message: 'کارن نوم باید لږ تر لږه ۳ توري ولري.'
+      message:
+        'کارن نوم باید لږ تر لږه ۳ توري ولري.'
     };
   }
+
 
   if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+
     return {
       success: false,
-      message: 'کارن نوم یوازې انګلیسي توري، شمېرې او . _ - کارولی شي.'
+      message:
+        'کارن نوم یوازې انګلیسي توري، شمېرې او . _ - کارولی شي.'
     };
   }
 
+
   if (!email || !email.includes('@')) {
+
     return {
       success: false,
       message: 'سم ایمیل ولیکئ.'
     };
   }
 
+
   if (password.length < 6) {
+
     return {
       success: false,
-      message: 'پټ نوم باید لږ تر لږه ۶ توري ولري.'
+      message:
+        'پټ نوم باید لږ تر لږه ۶ توري ولري.'
     };
   }
+
 
   if (password !== confirmPassword) {
+
     return {
       success: false,
-      message: 'د پټ نوم دواړه برخې یو شان نه دي.'
+      message:
+        'د پټ نوم دواړه برخې یو شان نه دي.'
     };
   }
 
-  if (UserDB.findByUsername(username)) {
+
+  /* ---------- API REGISTER ---------- */
+
+  try {
+
+    const result = await apiRequest(
+      '/api/register',
+      {
+        method: 'POST',
+
+        body: JSON.stringify({
+
+          fullName,
+          username,
+          email,
+          password,
+          referralCode:
+            referralCode || null
+
+        })
+      }
+    );
+
+
+    /* ---------- SAVE SESSION ---------- */
+
+    await Auth.loginSession(result);
+
+
     return {
+
+      success: true,
+
+      user:
+        result.user ||
+        result.data?.user ||
+        null,
+
+      token:
+        result.token ||
+        result.accessToken ||
+        null,
+
+      message:
+        result.message ||
+        'حساب مو جوړ شو.'
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
       success: false,
-      message: 'دا کارن نوم مخکې ثبت شوی دی.'
+
+      message:
+        error.message ||
+        'د حساب جوړولو پر مهال ستونزه رامنځته شوه.'
+
     };
   }
-
-  if (UserDB.findByEmail(email)) {
-    return {
-      success: false,
-      message: 'دا ایمیل مخکې ثبت شوی دی.'
-    };
-  }
-
-  const user = {
-    id: generateId(),
-    fullName,
-    username,
-    email,
-    password,
-    referralCode: generateReferralCode(username),
-    referredBy: referralCode || null,
-    balance: 0,
-    totalEarned: 0,
-    totalWithdrawn: 0,
-    referrals: 0,
-    completedTasks: [],
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    lastLoginReward: null
-  };
-
-  UserDB.create(user);
-
-  processReferral(referralCode, user.id);
-
-  Auth.login(user);
-
-  addTransaction(
-    user.id,
-    'register',
-    0,
-    'نوی حساب جوړ شو'
-  );
-
-  return {
-    success: true,
-    user: UserDB.findById(user.id)
-  };
 }
 
-function giveDailyLoginReward(user) {
-  if (!user) return 0;
 
-  const today = new Date().toISOString().slice(0, 10);
+/* =========================================================
+   LOGIN
+   ========================================================= */
 
-  if (user.lastLoginReward === today) {
+async function loginUser(
+  identifier,
+  password
+) {
+
+  const value =
+    String(identifier || '').trim();
+
+  const pass =
+    String(password || '');
+
+
+  if (!value) {
+
+    return {
+      success: false,
+      message:
+        'ایمیل یا کارن نوم ولیکئ.'
+    };
+  }
+
+
+  if (!pass) {
+
+    return {
+      success: false,
+      message:
+        'پټ نوم ولیکئ.'
+    };
+  }
+
+
+  try {
+
+    const result = await apiRequest(
+      '/api/login',
+      {
+        method: 'POST',
+
+        body: JSON.stringify({
+
+          identifier: value,
+          password: pass
+
+        })
+      }
+    );
+
+
+    /* ---------- SAVE LOGIN SESSION ---------- */
+
+    await Auth.loginSession(result);
+
+
+    /* ---------- DAILY REWARD ---------- */
+
+    const dailyReward =
+      Number(
+        result.dailyReward ||
+        result.reward ||
+        0
+      );
+
+
+    return {
+
+      success: true,
+
+      user:
+        result.user ||
+        result.data?.user ||
+        null,
+
+      token:
+        result.token ||
+        result.accessToken ||
+        null,
+
+      dailyReward,
+
+      message:
+        result.message ||
+        'بریالی ننوتل.'
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      success: false,
+
+      message:
+        error.message ||
+        'د ننوتلو پر مهال ستونزه رامنځته شوه.'
+
+    };
+  }
+}
+
+
+/* =========================================================
+   GET CURRENT USER FROM SERVER
+   ========================================================= */
+
+async function getCurrentUserFromAPI() {
+
+  if (!Auth.isLoggedIn()) {
+    return null;
+  }
+
+  try {
+
+    const result =
+      await apiRequest('/api/me');
+
+    const user =
+      result.user ||
+      result.data?.user ||
+      result;
+
+    if (user) {
+      UserDB.save(user);
+    }
+
+    return user;
+
+  } catch (error) {
+
+    console.error(
+      'Get current user error:',
+      error
+    );
+
+    return null;
+  }
+}
+
+
+/* =========================================================
+   BALANCE
+   ========================================================= */
+
+async function getBalance() {
+
+  if (!Auth.isLoggedIn()) {
     return 0;
   }
 
-  const reward = QR_CONFIG.dailyLoginReward;
+  try {
 
-  UserDB.update(user.id, {
-    balance: Number(user.balance || 0) + reward,
-    totalEarned: Number(user.totalEarned || 0) + reward,
-    lastLoginReward: today
-  });
+    const result =
+      await apiRequest('/api/balance');
 
-  addTransaction(
-    user.id,
-    'daily_login',
-    reward,
-    'د ننوتلو ورځنی انعام'
-  );
+    const balance =
+      Number(
+        result.balance ??
+        result.data?.balance ??
+        result.user?.balance ??
+        0
+      );
 
-  return reward;
+    const user =
+      Auth.getCurrentUser();
+
+    if (user) {
+
+      user.balance = balance;
+
+      UserDB.save(user);
+    }
+
+    return balance;
+
+  } catch (error) {
+
+    console.error(
+      'Balance error:',
+      error
+    );
+
+    const user =
+      Auth.getCurrentUser();
+
+    return Number(
+      user?.balance || 0
+    );
+  }
 }
 
-function loginUser(identifier, password) {
-  const value = String(identifier || '').trim();
 
-  let user = UserDB.findByEmail(value);
+/* =========================================================
+   DAILY CHECK-IN
+   ========================================================= */
 
-  if (!user) {
-    user = UserDB.findByUsername(value);
-  }
+async function dailyCheckin() {
 
-  if (!user) {
+  if (!Auth.isLoggedIn()) {
+
     return {
       success: false,
-      message: 'اکاونټ پیدا نه شو.'
+      message:
+        'لومړی خپل حساب ته ننوتئ.'
     };
   }
 
-  if (String(user.password) !== String(password)) {
+
+  try {
+
+    const result =
+      await apiRequest(
+        '/api/checkin',
+        {
+          method: 'POST'
+        }
+      );
+
+
+    if (result.user) {
+      UserDB.save(result.user);
+    }
+
+
+    const reward =
+      Number(
+        result.reward ||
+        result.dailyReward ||
+        0
+      );
+
+
     return {
+
+      success:
+        result.success !== false,
+
+      reward,
+
+      user:
+        result.user ||
+        null,
+
+      message:
+        result.message ||
+        (
+          reward > 0
+            ? `تاسو ${reward} AFN ورځنی انعام ترلاسه کړ.`
+            : 'نننی Check-in مخکې ترسره شوی دی.'
+        )
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
       success: false,
-      message: 'پټ نوم ناسم دی.'
+
+      message:
+        error.message ||
+        'د Check-in پر مهال ستونزه رامنځته شوه.'
+
     };
   }
-
-  if (user.status !== 'active') {
-    return {
-      success: false,
-      message: 'دا اکاونټ غیر فعال شوی دی.'
-    };
-  }
-
-  Auth.login(user);
-
-  const reward = giveDailyLoginReward(user);
-
-  return {
-    success: true,
-    user: UserDB.findById(user.id),
-    dailyReward: reward
-  };
 }
 
-function completeTask(taskId, reward, note) {
-  const user = Auth.getCurrentUser();
 
-  if (!user) {
+/* =========================================================
+   COMPLETE TASK / OFFER
+   ========================================================= */
+
+async function completeTask(
+  taskId,
+  reward = QR_CONFIG.offerReward,
+  note = 'دنده بشپړه شوه'
+) {
+
+  if (!Auth.isLoggedIn()) {
+
     return {
+
       success: false,
-      message: 'لومړی خپل حساب ته ننوتئ.'
+
+      message:
+        'لومړی خپل حساب ته ننوتئ.'
+
     };
   }
 
-  const completed = Array.isArray(user.completedTasks)
-    ? user.completedTasks
-    : [];
 
-  if (completed.includes(taskId)) {
+  /*
+    مهم:
+    د Offerwall اصلي انعام باید د Worker
+    webhook له لارې تایید شي.
+
+    Frontend باید یوازې د server API څخه
+    تایید شوی reward واخلي.
+  */
+
+  try {
+
+    const result =
+      await apiRequest(
+        '/api/task/complete',
+        {
+          method: 'POST',
+
+          body: JSON.stringify({
+
+            taskId,
+            reward:
+              Number(reward || 0),
+
+            note
+
+          })
+        }
+      );
+
+
+    if (result.user) {
+      UserDB.save(result.user);
+    }
+
+
     return {
+
+      success:
+        result.success !== false,
+
+      reward:
+        Number(result.reward || 0),
+
+      user:
+        result.user ||
+        null,
+
+      message:
+        result.message ||
+        'دنده بشپړه شوه.'
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
       success: false,
-      message: 'دا دنده مخکې بشپړه شوې ده.'
+
+      message:
+        error.message ||
+        'دنده ونه بشپړېده.'
+
     };
   }
-
-  const amount = Number(reward || 0);
-
-  UserDB.update(user.id, {
-    balance: Number(user.balance || 0) + amount,
-    totalEarned: Number(user.totalEarned || 0) + amount,
-    completedTasks: [...completed, taskId]
-  });
-
-  addTransaction(
-    user.id,
-    'task',
-    amount,
-    note || 'دنده بشپړه شوه'
-  );
-
-  return {
-    success: true,
-    reward: amount,
-    user: UserDB.findById(user.id)
-  };
 }
 
-function getTransactions(userId) {
-  return Storage
-    .get('transactions', [])
-    .filter(t => t.userId === userId);
+
+/* =========================================================
+   TRANSACTIONS
+   ========================================================= */
+
+async function getTransactions(
+  userId = null
+) {
+
+  if (!Auth.isLoggedIn()) {
+    return [];
+  }
+
+
+  try {
+
+    const result =
+      await apiRequest(
+        '/api/transactions'
+      );
+
+
+    return (
+      result.transactions ||
+      result.data?.transactions ||
+      []
+    );
+
+  } catch (error) {
+
+    console.error(
+      'Transactions error:',
+      error
+    );
+
+    return [];
+  }
 }
 
-function requestWithdrawal(amount, method, account) {
-  const user = Auth.getCurrentUser();
-  const value = Number(amount);
 
-  if (!user) {
+/* =========================================================
+   WITHDRAWAL
+   ========================================================= */
+
+async function requestWithdrawal(
+  amount,
+  method,
+  account
+) {
+
+  if (!Auth.isLoggedIn()) {
+
     return {
+
       success: false,
-      message: 'لومړی خپل حساب ته ننوتئ.'
+
+      message:
+        'لومړی خپل حساب ته ننوتئ.'
+
     };
   }
 
-  if (!value || value < QR_CONFIG.minWithdraw) {
+
+  const value =
+    Number(amount);
+
+
+  if (
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+
     return {
+
       success: false,
-      message: `د ایستلو لږ تر لږه اندازه ${QR_CONFIG.minWithdraw} AFN ده.`
+
+      message:
+        'د پیسو اندازه سمه ولیکئ.'
+
     };
   }
 
-  if (value > Number(user.balance || 0)) {
+
+  if (value < QR_CONFIG.minWithdraw) {
+
     return {
+
       success: false,
-      message: 'ستاسو موجوده بیلانس کافي نه دی.'
+
+      message:
+        `د ایستلو لږ تر لږه اندازه ${QR_CONFIG.minWithdraw} AFN ده.`
+
     };
   }
 
-  if (!method || !account) {
+
+  if (!method) {
+
     return {
+
       success: false,
-      message: 'د پیسو د ترلاسه کولو معلومات بشپړ کړئ.'
+
+      message:
+        'د پیسو د ترلاسه کولو طریقه وټاکئ.'
+
     };
   }
 
-  const withdrawals = Storage.get('withdrawals', []);
 
-  const withdrawal = {
-    id: 'wd_' + Date.now(),
-    userId: user.id,
-    amount: value,
-    method,
-    account,
-    status: 'pending',
-    createdAt: new Date().toISOString()
-  };
+  if (!account) {
 
-  withdrawals.unshift(withdrawal);
-  Storage.set('withdrawals', withdrawals);
+    return {
 
-  UserDB.update(user.id, {
-    balance: Number(user.balance || 0) - value,
-    totalWithdrawn: Number(user.totalWithdrawn || 0) + value
-  });
+      success: false,
 
-  addTransaction(
-    user.id,
-    'withdrawal',
-    -value,
-    'د پیسو ایستلو غوښتنه'
-  );
+      message:
+        'د پیسو د ترلاسه کولو معلومات ولیکئ.'
 
-  return {
-    success: true,
-    withdrawal
-  };
+    };
+  }
+
+
+  try {
+
+    const result =
+      await apiRequest(
+        '/api/withdraw',
+        {
+          method: 'POST',
+
+          body: JSON.stringify({
+
+            amount: value,
+
+            method:
+              String(method).trim(),
+
+            account:
+              String(account).trim()
+
+          })
+        }
+      );
+
+
+    if (result.user) {
+      UserDB.save(result.user);
+    }
+
+
+    return {
+
+      success:
+        result.success !== false,
+
+      withdrawal:
+        result.withdrawal ||
+        result.data?.withdrawal ||
+        null,
+
+      user:
+        result.user ||
+        null,
+
+      message:
+        result.message ||
+        'د ایستلو غوښتنه ثبت شوه.'
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      success: false,
+
+      message:
+        error.message ||
+        'د ایستلو غوښتنه ثبت نه شوه.'
+
+    };
+  }
 }
+
+
+/* =========================================================
+   FORMAT MONEY
+   ========================================================= */
 
 function formatMoney(amount) {
-  return Number(amount || 0).toLocaleString('en-US') +
+
+  const value =
+    Number(amount || 0);
+
+  return (
+    value.toLocaleString('en-US') +
     ' ' +
-    QR_CONFIG.currency;
+    QR_CONFIG.currency
+  );
 }
+
+
+/* =========================================================
+   FORMAT DATE
+   ========================================================= */
 
 function formatDate(date) {
-  if (!date) return '-';
 
-  return new Date(date).toLocaleDateString('ps-AF', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  if (!date) {
+    return '-';
+  }
+
+
+  try {
+
+    return new Date(date)
+      .toLocaleDateString(
+        'ps-AF',
+        {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        }
+      );
+
+  } catch (error) {
+
+    return '-';
+  }
 }
 
-function showAlert(message, type = 'info') {
+
+/* =========================================================
+   ALERT
+   ========================================================= */
+
+function showAlert(
+  message,
+  type = 'info'
+) {
+
+  /*
+    که ستا frontend کې custom alert
+    موجود وي، وروسته یې دلته وصلولی شو.
+  */
+
   alert(message);
 }
 
+
+/* =========================================================
+   SET TEXT
+   ========================================================= */
+
 function setText(id, value) {
-  const el = document.getElementById(id);
+
+  const el =
+    document.getElementById(id);
 
   if (el) {
     el.textContent = value;
   }
 }
 
+
+/* =========================================================
+   INITIALS
+   ========================================================= */
+
 function getInitials(name) {
-  return String(name || 'م')
-    .trim()
+
+  const value =
+    String(name || 'م').trim();
+
+
+  if (!value) {
+    return 'م';
+  }
+
+
+  return value
     .split(/\s+/)
     .slice(0, 2)
-    .map(x => x[0])
+    .map(
+      x => x.charAt(0)
+    )
     .join('')
     .toUpperCase();
 }
 
+
+/* =========================================================
+   REGISTER FORM
+   ========================================================= */
+
 function setupRegisterForm() {
-  const form = document.getElementById('registerForm');
 
-  if (!form) return;
-
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const result = registerUser({
-      fullName: document.getElementById('fullName')?.value,
-      username: document.getElementById('username')?.value,
-      email: document.getElementById('email')?.value,
-      password: document.getElementById('password')?.value,
-      confirmPassword: document.getElementById('confirmPassword')?.value,
-      referralCode: document.getElementById('referralCode')?.value
-    });
-
-    const message = document.getElementById('registerMessage');
-
-    if (!result.success) {
-      if (message) {
-        message.style.display = 'block';
-        message.textContent = result.message;
-      } else {
-        alert(result.message);
-      }
-
-      return;
-    }
-
-    if (message) {
-      message.style.display = 'block';
-      message.textContent = 'حساب مو جوړ شو. Dashboard ته انتقالېږئ...';
-    }
-
-    setTimeout(() => {
-      window.location.href = 'dashboard.html';
-    }, 500);
-  });
-}
-
-function setupLoginForm() {
-  const form = document.getElementById('loginForm');
-
-  if (!form) return;
-
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const result = loginUser(
-      document.getElementById('loginEmail')?.value,
-      document.getElementById('loginPassword')?.value
+  const form =
+    document.getElementById(
+      'registerForm'
     );
 
-    const message = document.getElementById('loginMessage');
+  if (!form) {
+    return;
+  }
 
-    if (!result.success) {
-      if (message) {
-        message.style.display = 'block';
-        message.textContent = result.message;
-      } else {
-        alert(result.message);
+
+  form.addEventListener(
+    'submit',
+    async function(e) {
+
+      e.preventDefault();
+
+
+      const message =
+        document.getElementById(
+          'registerMessage'
+        );
+
+
+      const submitButton =
+        form.querySelector(
+          'button[type="submit"]'
+        );
+
+
+      const originalText =
+        submitButton
+          ? submitButton.textContent
+          : '';
+
+
+      if (submitButton) {
+
+        submitButton.disabled = true;
+
+        submitButton.textContent =
+          'مهرباني وکړئ انتظار وکړئ...';
       }
 
-      return;
-    }
 
-    if (message) {
-      message.style.display = 'block';
-      message.textContent = 'بریالی ننوتل! Dashboard ته ځئ...';
-    }
+      const result =
+        await registerUser({
 
-    setTimeout(() => {
-      window.location.href = 'dashboard.html';
-    }, 500);
-  });
+          fullName:
+            document.getElementById(
+              'fullName'
+            )?.value,
+
+          username:
+            document.getElementById(
+              'username'
+            )?.value,
+
+          email:
+            document.getElementById(
+              'email'
+            )?.value,
+
+          password:
+            document.getElementById(
+              'password'
+            )?.value,
+
+          confirmPassword:
+            document.getElementById(
+              'confirmPassword'
+            )?.value,
+
+          referralCode:
+            document.getElementById(
+              'referralCode'
+            )?.value
+
+        });
+
+
+      if (submitButton) {
+
+        submitButton.disabled = false;
+
+        submitButton.textContent =
+          originalText;
+      }
+
+
+      if (!result.success) {
+
+        if (message) {
+
+          message.style.display =
+            'block';
+
+          message.textContent =
+            result.message;
+        } else {
+
+          alert(result.message);
+        }
+
+        return;
+      }
+
+
+      if (message) {
+
+        message.style.display =
+          'block';
+
+        message.textContent =
+          'حساب مو جوړ شو. Dashboard ته انتقالېږئ...';
+      }
+
+
+      setTimeout(
+        function() {
+
+          window.location.href =
+            'dashboard.html';
+
+        },
+        500
+      );
+
+    }
+  );
 }
+
+
+/* =========================================================
+   LOGIN FORM
+   ========================================================= */
+
+function setupLoginForm() {
+
+  const form =
+    document.getElementById(
+      'loginForm'
+    );
+
+  if (!form) {
+    return;
+  }
+
+
+  form.addEventListener(
+    'submit',
+    async function(e) {
+
+      e.preventDefault();
+
+
+      const message =
+        document.getElementById(
+          'loginMessage'
+        );
+
+
+      const submitButton =
+        form.querySelector(
+          'button[type="submit"]'
+        );
+
+
+      const originalText =
+        submitButton
+          ? submitButton.textContent
+          : '';
+
+
+      if (submitButton) {
+
+        submitButton.disabled = true;
+
+        submitButton.textContent =
+          'ننوتل روان دي...';
+      }
+
+
+      const result =
+        await loginUser(
+
+          document.getElementById(
+            'loginEmail'
+          )?.value,
+
+          document.getElementById(
+            'loginPassword'
+          )?.value
+
+        );
+
+
+      if (submitButton) {
+
+        submitButton.disabled = false;
+
+        submitButton.textContent =
+          originalText;
+      }
+
+
+      if (!result.success) {
+
+        if (message) {
+
+          message.style.display =
+            'block';
+
+          message.textContent =
+            result.message;
+
+        } else {
+
+          alert(result.message);
+        }
+
+        return;
+      }
+
+
+      if (message) {
+
+        message.style.display =
+          'block';
+
+        if (
+          result.dailyReward &&
+          result.dailyReward > 0
+        ) {
+
+          message.textContent =
+            `بریالی ننوتل! ${result.dailyReward} AFN ورځنی انعام هم ترلاسه شو.`;
+
+        } else {
+
+          message.textContent =
+            'بریالی ننوتل! Dashboard ته ځئ...';
+        }
+      }
+
+
+      setTimeout(
+        function() {
+
+          window.location.href =
+            'dashboard.html';
+
+        },
+        500
+      );
+
+    }
+  );
+}
+
+
+/* =========================================================
+   LOGOUT BUTTONS
+   ========================================================= */
 
 function setupLogoutButtons() {
-  document.querySelectorAll('[data-logout]').forEach(button => {
-    button.addEventListener('click', function(e) {
-      e.preventDefault();
-      Auth.logout();
-    });
-  });
+
+  document
+    .querySelectorAll(
+      '[data-logout]'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          function(e) {
+
+            e.preventDefault();
+
+            Auth.logout();
+
+          }
+        );
+
+      }
+    );
 }
 
-function updateUserUI() {
-  const user = Auth.getCurrentUser();
 
-  document.querySelectorAll('[data-user-name]').forEach(el => {
-    el.textContent = user ? user.fullName : 'مېلمه';
-  });
+/* =========================================================
+   UPDATE USER UI
+   ========================================================= */
 
-  document.querySelectorAll('[data-user-balance]').forEach(el => {
-    el.textContent = user
-      ? formatMoney(user.balance)
-      : formatMoney(0);
-  });
+async function updateUserUI() {
 
-  document.querySelectorAll('[data-user-referrals]').forEach(el => {
-    el.textContent = user ? user.referrals || 0 : 0;
-  });
+  let user =
+    Auth.getCurrentUser();
+
+
+  if (
+    Auth.isLoggedIn()
+  ) {
+
+    const serverUser =
+      await getCurrentUserFromAPI();
+
+    if (serverUser) {
+      user = serverUser;
+    }
+  }
+
+
+  document
+    .querySelectorAll(
+      '[data-user-name]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? (
+                user.fullName ||
+                user.name ||
+                user.username ||
+                'کارن'
+              )
+            : 'مېلمه';
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '[data-user-balance]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? formatMoney(
+                user.balance
+              )
+            : formatMoney(0);
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '[data-user-referrals]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? Number(
+                user.referrals || 0
+              )
+            : 0;
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '[data-user-username]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? (
+                user.username ||
+                ''
+              )
+            : '';
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '[data-user-email]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? (
+                user.email ||
+                ''
+              )
+            : '';
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '[data-user-referral-code]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? (
+                user.referralCode ||
+                ''
+              )
+            : '';
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '[data-user-total-earned]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? formatMoney(
+                user.totalEarned
+              )
+            : formatMoney(0);
+
+      }
+    );
+
+
+  document
+    .querySelectorAll(
+      '[data-user-total-withdrawn]'
+    )
+    .forEach(
+      el => {
+
+        el.textContent =
+          user
+            ? formatMoney(
+                user.totalWithdrawn
+              )
+            : formatMoney(0);
+
+      }
+    );
 }
+
+
+/* =========================================================
+   PROTECT PRIVATE PAGES
+   ========================================================= */
 
 function protectPrivatePages() {
+
   const privatePages = [
+
     'dashboard.html',
     'referrals.html',
-    'rewards.html'
+    'rewards.html',
+    'withdraw.html',
+    'profile.html',
+    'transactions.html'
+
   ];
 
-  const page = window.location.pathname.split('/').pop();
 
-  if (privatePages.includes(page)) {
+  const page =
+    window.location.pathname
+      .split('/')
+      .pop();
+
+
+  if (
+    privatePages.includes(page)
+  ) {
+
     Auth.requireLogin();
   }
 }
 
+
+/* =========================================================
+   REFERRAL LINK
+   ========================================================= */
+
 function setupReferralCopy() {
-  document.querySelectorAll('[data-copy-referral]').forEach(button => {
-    button.addEventListener('click', async function() {
-      const user = Auth.getCurrentUser();
 
-      if (!user) return;
+  document
+    .querySelectorAll(
+      '[data-copy-referral]'
+    )
+    .forEach(
+      button => {
 
-      const link =
-        window.location.origin +
-        window.location.pathname.replace(/[^/]+$/, '') +
-        'register.html?ref=' +
-        encodeURIComponent(user.referralCode);
+        button.addEventListener(
+          'click',
+          async function() {
 
-      try {
-        await navigator.clipboard.writeText(link);
-        alert('د ریفرل لینک کاپي شو.');
-      } catch (e) {
-        prompt('دا لینک کاپي کړئ:', link);
+            const user =
+              Auth.getCurrentUser();
+
+
+            if (!user) {
+
+              alert(
+                'لومړی خپل حساب ته ننوتئ.'
+              );
+
+              return;
+            }
+
+
+            if (!user.referralCode) {
+
+              alert(
+                'ستاسو Referral Code پیدا نه شو.'
+              );
+
+              return;
+            }
+
+
+            const basePath =
+              window.location.pathname
+                .replace(
+                  /[^/]+$/,
+                  ''
+                );
+
+
+            const link =
+              window.location.origin +
+              basePath +
+              'register.html?ref=' +
+              encodeURIComponent(
+                user.referralCode
+              );
+
+
+            try {
+
+              await navigator
+                .clipboard
+                .writeText(link);
+
+
+              alert(
+                'د ریفرل لینک کاپي شو.'
+              );
+
+            } catch (error) {
+
+              prompt(
+                'دا لینک کاپي کړئ:',
+                link
+              );
+            }
+
+          }
+        );
+
       }
-    });
-  });
+    );
 }
 
+
+/* =========================================================
+   LOAD REFERRAL CODE FROM URL
+   ========================================================= */
+
 function loadReferralFromURL() {
-  const input = document.getElementById('referralCode');
 
-  if (!input) return;
+  const input =
+    document.getElementById(
+      'referralCode'
+    );
 
-  const params = new URLSearchParams(window.location.search);
-  const ref = params.get('ref');
+
+  if (!input) {
+    return;
+  }
+
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+
+  const ref =
+    params.get('ref');
+
 
   if (ref) {
-    input.value = ref;
+
+    input.value =
+      ref.toUpperCase();
+
+    input.readOnly = true;
   }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  protectPrivatePages();
-  setupRegisterForm();
-  setupLoginForm();
-  setupLogoutButtons();
-  setupReferralCopy();
-  loadReferralFromURL();
-  updateUserUI();
-});
+
+/* =========================================================
+   AUTO REFRESH USER DATA
+   ========================================================= */
+
+async function refreshDashboardData() {
+
+  if (!Auth.isLoggedIn()) {
+    return null;
+  }
+
+
+  try {
+
+    const user =
+      await getCurrentUserFromAPI();
+
+
+    if (user) {
+
+      await updateUserUI();
+    }
+
+
+    return user;
+
+  } catch (error) {
+
+    console.error(
+      'Dashboard refresh error:',
+      error
+    );
+
+    return null;
+  }
+}
+
+
+/* =========================================================
+   CHECK API CONNECTION
+   ========================================================= */
+
+async function checkAPI() {
+
+  try {
+
+    const result =
+      await fetch(
+        QR_CONFIG.API_URL +
+        '/api/test'
+      );
+
+
+    if (!result.ok) {
+      return false;
+    }
+
+
+    const data =
+      await result.json();
+
+
+    return (
+      data.success === true &&
+      data.database === true
+    );
+
+  } catch (error) {
+
+    console.error(
+      'API connection error:',
+      error
+    );
+
+    return false;
+  }
+}
+
+
+/* =========================================================
+   INITIALIZATION
+   ========================================================= */
+
+document.addEventListener(
+  'DOMContentLoaded',
+  async function() {
+
+    protectPrivatePages();
+
+    setupRegisterForm();
+
+    setupLoginForm();
+
+    setupLogoutButtons();
+
+    setupReferralCopy();
+
+    loadReferralFromURL();
+
+    await updateUserUI();
+
+  }
+);
+
+
+/* =========================================================
+   PUBLIC API
+   ========================================================= */
 
 window.QararRewards = {
+
   config: QR_CONFIG,
+
   Storage,
+
   UserDB,
+
   Auth,
+
+  apiRequest,
+
   registerUser,
+
   loginUser,
+
+  getCurrentUserFromAPI,
+
+  getBalance,
+
+  dailyCheckin,
+
   completeTask,
-  requestWithdrawal,
+
   getTransactions,
+
+  requestWithdrawal,
+
+  refreshDashboardData,
+
+  checkAPI,
+
   formatMoney,
+
   formatDate,
-  addTransaction
+
+  showAlert,
+
+  setText,
+
+  getInitials
+
 };
