@@ -1,4 +1,4 @@
-const CORS_HEADERS = {
+const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
@@ -9,26 +9,43 @@ function json(data, status = 200) {
     status,
     headers: {
       "Content-Type": "application/json",
-      ...CORS_HEADERS
+      ...CORS
     }
   });
 }
 
-function token() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
-}
+async function sha256(value) {
+  const data = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", data);
 
-async function hash(text) {
-  const data = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-
-  return [...new Uint8Array(digest)]
-    .map(b => b.toString(16).padStart(2, "0"))
+  return Array.from(new Uint8Array(hash))
+    .map(x => x.toString(16).padStart(2, "0"))
     .join("");
 }
 
-async function getUser(request, env) {
+function randomToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+
+  return Array.from(bytes)
+    .map(x => x.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function randomReferral(username) {
+  const base = String(username || "USER")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .slice(0, 6);
+
+  const random = crypto.randomUUID()
+    .replace(/-/g, "")
+    .slice(0, 6)
+    .toUpperCase();
+
+  return base + random;
+}
+
+async function currentUser(request, env) {
   const auth = request.headers.get("Authorization");
 
   if (!auth || !auth.startsWith("Bearer ")) {
@@ -36,20 +53,26 @@ async function getUser(request, env) {
   }
 
   const rawToken = auth.substring(7);
-  const tokenHash = await hash(rawToken);
+  const tokenHash = await sha256(rawToken);
 
-  const session = await env.DB
-    .prepare(`
-      SELECT users.*
-      FROM sessions
-      JOIN users ON users.id = sessions.user_id
-      WHERE sessions.token_hash = ?
-      AND datetime(sessions.expires_at) > datetime('now')
-    `)
-    .bind(tokenHash)
-    .first();
-
-  return session || null;
+  return await env.DB.prepare(`
+    SELECT
+      users.id,
+      users.fullName,
+      users.username,
+      users.email,
+      users.phone,
+      users.referral_code,
+      users.referred_by,
+      users.balance,
+      users.created_at
+    FROM sessions
+    JOIN users ON users.id = sessions.user_id
+    WHERE sessions.token_hash = ?
+    AND datetime(sessions.expires_at) > datetime('now')
+  `)
+  .bind(tokenHash)
+  .first();
 }
 
 export default {
@@ -57,22 +80,23 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
-        headers: CORS_HEADERS
+        headers: CORS
       });
     }
 
     const url = new URL(request.url);
 
-    // API TEST
+    // TEST
     if (url.pathname === "/api/test") {
       try {
         await env.DB.prepare("SELECT 1").first();
 
         return json({
           success: true,
-          api: "QararRewards API",
+          api: "Qarar Rewards API",
           database: true
         });
+
       } catch (error) {
         return json({
           success: false,
@@ -85,49 +109,67 @@ export default {
     // REGISTER
     if (url.pathname === "/api/register" && request.method === "POST") {
       try {
+
         const data = await request.json();
 
-        const name = String(data.name || "").trim();
-        const phone = String(data.phone || "").trim();
+        const fullName = String(data.fullName || "").trim();
+        const username = String(data.username || "").trim();
+        const email = String(data.email || "").trim().toLowerCase();
         const password = String(data.password || "");
-        const referralCode = String(
-          data.referral_code || ""
-        ).trim();
+        const referralCode = String(data.referralCode || "").trim();
 
-        if (!name || !phone || !password) {
+        if (!fullName || !username || !email || !password) {
           return json({
             success: false,
-            message: "Name, phone and password are required"
+            message: "ټول اړین معلومات بشپړ کړئ."
+          }, 400);
+        }
+
+        if (username.length < 3) {
+          return json({
+            success: false,
+            message: "Username باید لږ تر لږه ۳ توري ولري."
           }, 400);
         }
 
         if (password.length < 6) {
           return json({
             success: false,
-            message: "Password must contain at least 6 characters"
+            message: "Password باید لږ تر لږه ۶ توري ولري."
           }, 400);
         }
 
-        const existing = await env.DB
-          .prepare("SELECT id FROM users WHERE phone = ?")
-          .bind(phone)
+        const existingUsername = await env.DB
+          .prepare(`
+            SELECT id
+            FROM users
+            WHERE lower(username) = lower(?)
+          `)
+          .bind(username)
           .first();
 
-        if (existing) {
+        if (existingUsername) {
           return json({
             success: false,
-            message: "This phone number is already registered"
+            message: "دا کارن نوم مخکې ثبت شوی دی."
           }, 409);
         }
 
-        const passwordHash = await hash(password);
+        const existingEmail = await env.DB
+          .prepare(`
+            SELECT id
+            FROM users
+            WHERE lower(email) = lower(?)
+          `)
+          .bind(email)
+          .first();
 
-        const referral =
-          "QR" +
-          crypto.randomUUID()
-            .replace(/-/g, "")
-            .substring(0, 8)
-            .toUpperCase();
+        if (existingEmail) {
+          return json({
+            success: false,
+            message: "دا ایمیل مخکې ثبت شوی دی."
+          }, 409);
+        }
 
         let referrer = null;
 
@@ -136,33 +178,44 @@ export default {
             .prepare(`
               SELECT id, referral_code
               FROM users
-              WHERE referral_code = ?
+              WHERE upper(referral_code) = upper(?)
             `)
             .bind(referralCode)
             .first();
         }
 
-        const result = await env.DB
-          .prepare(`
-            INSERT INTO users
-            (name, phone, password, referral_code, referred_by, balance)
-            VALUES (?, ?, ?, ?, ?, 0)
-          `)
-          .bind(
-            name,
-            phone,
-            passwordHash,
-            referral,
-            referrer ? referrer.referral_code : null
+        const passwordHash = await sha256(password);
+        const referral = randomReferral(username);
+
+        const result = await env.DB.prepare(`
+          INSERT INTO users
+          (
+            fullName,
+            username,
+            email,
+            password,
+            referral_code,
+            referred_by,
+            balance
           )
-          .run();
+          VALUES (?, ?, ?, ?, ?, ?, 0)
+        `)
+        .bind(
+          fullName,
+          username,
+          email,
+          passwordHash,
+          referral,
+          referrer ? referrer.referral_code : null
+        )
+        .run();
 
         const userId = result.meta.last_row_id;
 
-        // Referral reward
+        // Referral reward = 8 AFN
         if (referrer) {
 
-          const referralReward = 8;
+          const reward = 8;
 
           await env.DB.batch([
 
@@ -170,40 +223,74 @@ export default {
               UPDATE users
               SET balance = balance + ?
               WHERE id = ?
-            `).bind(referralReward, referrer.id),
+            `)
+            .bind(reward, referrer.id),
 
             env.DB.prepare(`
               INSERT INTO referrals
-              (referrer_id, referred_user_id, reward)
+              (
+                referrer_id,
+                referred_user_id,
+                reward
+              )
               VALUES (?, ?, ?)
-            `).bind(
+            `)
+            .bind(
               referrer.id,
               userId,
-              referralReward
+              reward
             ),
 
             env.DB.prepare(`
               INSERT INTO transactions
-              (user_id, amount, type, description)
+              (
+                user_id,
+                amount,
+                type,
+                description
+              )
               VALUES (?, ?, ?, ?)
-            `).bind(
+            `)
+            .bind(
               referrer.id,
-              referralReward,
+              reward,
               "referral",
-              "Verified referral reward"
+              "د نوي غړي د راجستر ریفرل انعام"
             )
           ]);
         }
 
+        // Create session automatically
+        const rawToken = randomToken();
+        const tokenHash = await sha256(rawToken);
+
+        await env.DB.prepare(`
+          INSERT INTO sessions
+          (
+            user_id,
+            token_hash,
+            expires_at
+          )
+          VALUES (?, ?, datetime('now', '+30 days'))
+        `)
+        .bind(
+          userId,
+          tokenHash
+        )
+        .run();
+
         return json({
           success: true,
-          message: "Registration successful",
+          message: "حساب په بریالیتوب جوړ شو.",
+          token: rawToken,
           user: {
             id: userId,
-            name,
-            phone,
-            referral_code: referral,
-            balance: 0
+            fullName,
+            username,
+            email,
+            referralCode: referral,
+            balance: 0,
+            referrals: 0
           }
         });
 
@@ -211,7 +298,7 @@ export default {
 
         return json({
           success: false,
-          message: "Registration failed",
+          message: "Registration failed.",
           error: error.message
         }, 500);
       }
@@ -223,97 +310,169 @@ export default {
 
         const data = await request.json();
 
-        const phone = String(data.phone || "").trim();
+        const identifier = String(data.identifier || "").trim();
         const password = String(data.password || "");
 
-        if (!phone || !password) {
+        if (!identifier || !password) {
           return json({
             success: false,
-            message: "Phone and password are required"
+            message: "Username/Email او Password ولیکئ."
           }, 400);
         }
 
-        const passwordHash = await hash(password);
+        const passwordHash = await sha256(password);
 
-        const user = await env.DB
-          .prepare(`
-            SELECT id, name, phone, referral_code, balance
-            FROM users
-            WHERE phone = ?
-            AND password = ?
-          `)
-          .bind(phone, passwordHash)
-          .first();
+        const user = await env.DB.prepare(`
+          SELECT *
+          FROM users
+          WHERE
+            lower(username) = lower(?)
+            OR lower(email) = lower(?)
+          LIMIT 1
+        `)
+        .bind(
+          identifier,
+          identifier
+        )
+        .first();
 
         if (!user) {
           return json({
             success: false,
-            message: "Invalid phone or password"
+            message: "اکاونټ پیدا نه شو."
           }, 401);
         }
 
-        const rawToken = token();
-        const tokenHash = await hash(rawToken);
+        if (user.password !== passwordHash) {
+          return json({
+            success: false,
+            message: "Password ناسم دی."
+          }, 401);
+        }
 
-        await env.DB
-          .prepare(`
-            INSERT INTO sessions
-            (user_id, token_hash, expires_at)
-            VALUES (?, ?, datetime('now', '+30 days'))
-          `)
-          .bind(
-            user.id,
-            tokenHash
+        const rawToken = randomToken();
+        const tokenHash = await sha256(rawToken);
+
+        await env.DB.prepare(`
+          INSERT INTO sessions
+          (
+            user_id,
+            token_hash,
+            expires_at
           )
-          .run();
+          VALUES (?, ?, datetime('now', '+30 days'))
+        `)
+        .bind(
+          user.id,
+          tokenHash
+        )
+        .run();
+
+        // Daily login reward = 2 AFN
+        const today = new Date()
+          .toISOString()
+          .slice(0, 10);
+
+        let dailyReward = 0;
+
+        const already = await env.DB.prepare(`
+          SELECT id
+          FROM checkins
+          WHERE user_id = ?
+          AND checkin_date = ?
+        `)
+        .bind(
+          user.id,
+          today
+        )
+        .first();
+
+        if (!already) {
+
+          dailyReward = 2;
+
+          await env.DB.batch([
+
+            env.DB.prepare(`
+              INSERT INTO checkins
+              (
+                user_id,
+                checkin_date,
+                reward
+              )
+              VALUES (?, ?, ?)
+            `)
+            .bind(
+              user.id,
+              today,
+              dailyReward
+            ),
+
+            env.DB.prepare(`
+              UPDATE users
+              SET balance = balance + ?
+              WHERE id = ?
+            `)
+            .bind(
+              dailyReward,
+              user.id
+            ),
+
+            env.DB.prepare(`
+              INSERT INTO transactions
+              (
+                user_id,
+                amount,
+                type,
+                description
+              )
+              VALUES (?, ?, ?, ?)
+            `)
+            .bind(
+              user.id,
+              dailyReward,
+              "daily_login",
+              "د ننوتلو ورځنی انعام"
+            )
+          ]);
+        }
+
+        const updatedUser = await env.DB.prepare(`
+          SELECT
+            id,
+            fullName,
+            username,
+            email,
+            referral_code,
+            balance
+          FROM users
+          WHERE id = ?
+        `)
+        .bind(user.id)
+        .first();
 
         return json({
           success: true,
-          message: "Login successful",
+          message: "بریالی Login.",
           token: rawToken,
-          user
+          dailyReward,
+          user: updatedUser
         });
 
       } catch (error) {
 
         return json({
           success: false,
-          message: "Login failed",
+          message: "Login failed.",
           error: error.message
         }, 500);
       }
     }
 
-    // LOGOUT
-    if (url.pathname === "/api/logout" && request.method === "POST") {
-
-      const auth = request.headers.get("Authorization");
-
-      if (auth && auth.startsWith("Bearer ")) {
-
-        const tokenHash = await hash(
-          auth.substring(7)
-        );
-
-        await env.DB
-          .prepare(`
-            DELETE FROM sessions
-            WHERE token_hash = ?
-          `)
-          .bind(tokenHash)
-          .run();
-      }
-
-      return json({
-        success: true,
-        message: "Logged out"
-      });
-    }
-
-    // CURRENT USER
+    // ME
     if (url.pathname === "/api/me" && request.method === "GET") {
 
-      const user = await getUser(request, env);
+      const user = await currentUser(request, env);
 
       if (!user) {
         return json({
@@ -324,20 +483,14 @@ export default {
 
       return json({
         success: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          phone: user.phone,
-          referral_code: user.referral_code,
-          balance: user.balance
-        }
+        user
       });
     }
 
     // BALANCE
     if (url.pathname === "/api/balance" && request.method === "GET") {
 
-      const user = await getUser(request, env);
+      const user = await currentUser(request, env);
 
       if (!user) {
         return json({
@@ -352,12 +505,12 @@ export default {
       });
     }
 
-    // DAILY CHECK-IN
+    // CHECK-IN
     if (url.pathname === "/api/checkin" && request.method === "POST") {
 
       try {
 
-        const user = await getUser(request, env);
+        const user = await currentUser(request, env);
 
         if (!user) {
           return json({
@@ -368,22 +521,24 @@ export default {
 
         const today = new Date()
           .toISOString()
-          .substring(0, 10);
+          .slice(0, 10);
 
-        const existing = await env.DB
-          .prepare(`
-            SELECT id
-            FROM checkins
-            WHERE user_id = ?
-            AND checkin_date = ?
-          `)
-          .bind(user.id, today)
-          .first();
+        const existing = await env.DB.prepare(`
+          SELECT id
+          FROM checkins
+          WHERE user_id = ?
+          AND checkin_date = ?
+        `)
+        .bind(
+          user.id,
+          today
+        )
+        .first();
 
         if (existing) {
           return json({
             success: false,
-            message: "Today's check-in is already completed"
+            message: "د نن Check-in مخکې شوی دی."
           }, 409);
         }
 
@@ -393,9 +548,14 @@ export default {
 
           env.DB.prepare(`
             INSERT INTO checkins
-            (user_id, checkin_date, reward)
+            (
+              user_id,
+              checkin_date,
+              reward
+            )
             VALUES (?, ?, ?)
-          `).bind(
+          `)
+          .bind(
             user.id,
             today,
             reward
@@ -405,45 +565,115 @@ export default {
             UPDATE users
             SET balance = balance + ?
             WHERE id = ?
-          `).bind(
+          `)
+          .bind(
             reward,
             user.id
           ),
 
           env.DB.prepare(`
             INSERT INTO transactions
-            (user_id, amount, type, description)
+            (
+              user_id,
+              amount,
+              type,
+              description
+            )
             VALUES (?, ?, ?, ?)
-          `).bind(
+          `)
+          .bind(
             user.id,
             reward,
             "checkin",
-            "Daily check-in reward"
+            "Daily Check-in"
           )
         ]);
 
         return json({
           success: true,
           reward,
-          message: "Daily check-in completed"
+          message: "Check-in بشپړ شو."
         });
 
       } catch (error) {
 
         return json({
           success: false,
-          message: "Check-in failed",
+          message: "Check-in failed.",
           error: error.message
         }, 500);
       }
     }
 
-    // WITHDRAWAL
-    if (url.pathname === "/api/withdraw" && request.method === "POST") {
+    // TRANSACTIONS
+    if (
+      url.pathname === "/api/transactions" &&
+      request.method === "GET"
+    ) {
+
+      const user = await currentUser(request, env);
+
+      if (!user) {
+        return json({
+          success: false,
+          message: "Unauthorized"
+        }, 401);
+      }
+
+      const transactions = await env.DB.prepare(`
+        SELECT
+          id,
+          amount,
+          type,
+          description,
+          created_at
+        FROM transactions
+        WHERE user_id = ?
+        ORDER BY id DESC
+      `)
+      .bind(user.id)
+      .all();
+
+      return json({
+        success: true,
+        transactions: transactions.results
+      });
+    }
+
+    // LOGOUT
+    if (url.pathname === "/api/logout" && request.method === "POST") {
+
+      const auth = request.headers.get("Authorization");
+
+      if (auth && auth.startsWith("Bearer ")) {
+
+        const tokenHash = await sha256(
+          auth.substring(7)
+        );
+
+        await env.DB.prepare(`
+          DELETE FROM sessions
+          WHERE token_hash = ?
+        `)
+        .bind(tokenHash)
+        .run();
+      }
+
+      return json({
+        success: true,
+        message: "Logout successful"
+      });
+    }
+
+    // WITHDRAW
+    if (
+      url.pathname === "/api/withdraw" &&
+      request.method === "POST"
+    ) {
 
       try {
 
-        const user = await getUser(request, env);
+        const user = await currentUser(request, env);
 
         if (!user) {
           return json({
@@ -458,17 +688,24 @@ export default {
         const method = String(data.method || "").trim();
         const account = String(data.account || "").trim();
 
-        if (!amount || amount <= 0 || !method || !account) {
+        if (!amount || amount < 500) {
           return json({
             success: false,
-            message: "Invalid withdrawal information"
+            message: "لږ تر لږه Withdrawal 500 AFN دی."
           }, 400);
         }
 
-        if (amount > user.balance) {
+        if (amount > Number(user.balance || 0)) {
           return json({
             success: false,
-            message: "Insufficient balance"
+            message: "ستاسو Balance کافي نه دی."
+          }, 400);
+        }
+
+        if (!method || !account) {
+          return json({
+            success: false,
+            message: "د ترلاسه کولو معلومات بشپړ کړئ."
           }, 400);
         }
 
@@ -478,16 +715,24 @@ export default {
             UPDATE users
             SET balance = balance - ?
             WHERE id = ?
-          `).bind(
+          `)
+          .bind(
             amount,
             user.id
           ),
 
           env.DB.prepare(`
             INSERT INTO withdrawals
-            (user_id, amount, method, account, status)
+            (
+              user_id,
+              amount,
+              method,
+              account,
+              status
+            )
             VALUES (?, ?, ?, ?, 'pending')
-          `).bind(
+          `)
+          .bind(
             user.id,
             amount,
             method,
@@ -496,9 +741,15 @@ export default {
 
           env.DB.prepare(`
             INSERT INTO transactions
-            (user_id, amount, type, description)
+            (
+              user_id,
+              amount,
+              type,
+              description
+            )
             VALUES (?, ?, ?, ?)
-          `).bind(
+          `)
+          .bind(
             user.id,
             -amount,
             "withdrawal",
@@ -508,20 +759,20 @@ export default {
 
         return json({
           success: true,
-          message: "Withdrawal request submitted"
+          message: "Withdrawal request ثبت شو."
         });
 
       } catch (error) {
 
         return json({
           success: false,
-          message: "Withdrawal failed",
+          message: "Withdrawal failed.",
           error: error.message
         }, 500);
       }
     }
 
-    // WEBSITE
+    // STATIC WEBSITE
     return env.ASSETS.fetch(request);
   }
 };
